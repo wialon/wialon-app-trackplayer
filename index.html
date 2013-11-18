@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<!--************************************************************************
+	
+	Apps - WEB applications, developed on the basis of SDK for Wialon Hosting and Wialon Kit.
+	
+	http://apps.wialon.com
+	
+	Copyright:
+	2002-2013 Gurtam, http://gurtam.com
+	License:
+	LGPL: http://www.gnu.org/licenses/lgpl.html
+	
+************************************************************************ !-->
+
+<html>
+<head>
+	<title>Wialon Track Player</title>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+	
+	<link href="img/favicon.ico" rel="icon" type="image/x-icon" />
+	
+	<script src='js/OpenLayers.js'></script>
+	<script src="js/GMap.js"></script>
+	<script src="js/PanZoomBar.js"></script>
+	<script src="js/GNavigation.js"></script>
+	<script src="js/WebGis.js"></script>
+	<script src="http://maps.google.com/maps/api/js?v=3.2&sensor=false"></script>
+	
+	<!--[if lte IE 9]><script language="javascript" type="text/javascript" src="js/excanvas.min.js"></script><![endif]-->
+	
+	<script src="js/jquery.js"></script>
+	<script src="js/jquery-ui.js"></script>
+	<script src="js/jquery.ui.touch-punch.min.js"></script>
+	<script src="js/timepicker.js"></script>
+	<script src="js/jquery.rotate.js"></script>
+	<script src="js/jquery.localisation.js"></script>
+	
+	<script src="js/jquery.flot.js"></script>
+	<script src="js/jquery.flot.navigate.js"></script>
+	<script src="js/jquery.flot.fillarea.js"></script>
+	<script src="js/jquery.flot.time.js"></script>
+	<script src="js/jquery.flot.resize.js"></script>
+	
+	<link rel="stylesheet" type="text/css" href="css/style.css"/>
+	<script src="js/messages.js"></script>
+	<script src="js/sensors.js"></script>
+	<script src="js/trackplayer.js"></script>
+	<script src="js/script.js"></script>
+</head>
+<body>
+	<div id="header">
+		<img class="logo" src="img/logo.png"/><span class="app_name"></span>
+	</div>
+	<div id="layout">    
+		<div id="menu">
+			<div class="header">
+				<div class="row"><div id="tr_interval" class="label"></div><select id="time_interval"></select></div>
+				<div class="row" id="timepickers"><div class="label"></div><input class="datetime" id="t_begin"/><span style="margin:0 8px;">-</span><input class="datetime" id="t_end"/></div>
+				<div class="row">
+					<div class="label" id="tr_unit"></div><select id="units"></select>
+					<div id="color"><div class="template active" style="background:#679A01" data-marker="green" data-bckgrnd="679a01"><div style="display:block;"></div></div><div class="template" style="background:#009a2f" data-marker="dark-green" data-bckgrnd="009a2f"><div></div></div><div class="template" style="background:#009999" data-marker="turquoise" data-bckgrnd="009999"><div></div></div><div class="template" style="background:#0069ce" data-marker="blue" data-bckgrnd="0069ce"><div></div></div><div class="template" style="background:#3233ff" data-marker="violet" data-bckgrnd="3233ff"><div></div></div><div class="template" style="background:#6734cd" data-marker="stronge-violet" data-bckgrnd="6734cd"><div></div></div><div class="template" style="background:#9b31d1" data-marker="fuchsia" data-bckgrnd="9b31d1"><div></div></div><div class="template" style="background:#ff005a" data-marker="pink" data-bckgrnd="ff005a"><div></div></div><div class="template" style="background:#fe0000" data-marker="red" data-bckgrnd="fe0000"><div></div></div><div class="template" style="background:#fa9b03" data-marker="orange" data-bckgrnd="fa9b03"><div></div></div></div>
+				</div>
+				<div class="buttons row">
+					<div class="btn_wrapper" style="margin-right:5px;"><input class="menu_btn" disabled id="set_interval_btn" type="button" value=""/></div>
+					<div class="btn_wrapper" style="margin-right:30px;"><input class="menu_btn" disabled id="add_btn" type="button" value=""/></div>
+				</div>
+			</div>
+			<div class="tracks"><div id="tr_tracks"></div></div>
+			<div id="tracks_list"></div>
+		</div>
+		<div class="map_wrapper">
+			<div id="map" style="width:100%; height:100%;"></div>
+		</div>
+		<div id="control">
+			<div id="info_block">
+				<div id="photos"></div>
+				<div id="graph"></div>
+			</div>
+			<div id="playline_block">
+				<div class="b1">
+					<div id="step_val" title="">10x</div>
+					<button disabled id="play_btn" type="button"></button>
+					<div id="t_curr"><span class="d"></span><span class="t"></span></div>
+					<button disabled id="tostart_btn" type="button"></button>
+					<button disabled id="stepleft_btn" type="button"></button> 
+				</div>
+				<div class="timeline_wrapper">
+					<div id="range"></div>
+					<div id="slider"></div>
+				</div>
+				<div class="b2">
+					<button disabled id="stepright_btn" type="button" ></button>
+					<button disabled id="toend_btn" type="button" ></button>
+					<button disabled id="settings_btn" type="button" ></button>
+				</div>
+			</div>
+		</div>
+		<div class="step_wrapper" tabindex="-1">
+			<div id="step" tabindex="-1"></div>
+		</div>
+		<img id="photo_hover" src="img/logo.png"/>
+		<div id="dialog">
+			<div class="header">
+				<span id="tr_monitoring_info"></span><a id="tr_hide_dialog" title="" href="#" onclick="$('#dialog').hide();return false;">&#x2715;</a>
+			</div>
+			<div class="row" style="cursor: auto;">
+				<input id="rotate_icon" type="checkbox" onchange="changeUnitIconRotation();"/><label id="tr_rotate_icon" style="color:#fff;" for="rotate_icon"></label>
+			</div>
+			<div id="selected_options" class="all_params"></div>
+			<div class="plain_text"></div>
+			<div>
+				<div class="label" tabindex="-1"><span id="tr_common"></span><img src="img/show.png"/></div>
+				<div id="commons" class="all_params"></div>
+			</div>
+			<div>
+				<div class="label" tabindex="-1"><span id='tr_sensors'></span><img src="img/show.png"/></div>
+				<div id="sensors" class="all_params"></div>
+			</div>
+		</div>
+		<div id="settings_dialog">
+			<div class="row">
+				<input id="skip_trips_ch" type="checkbox" onchange="skipBeetweenTrips=this.checked; setCookie('app_trpl_skip', skipBeetweenTrips?1:0);"/><label id="tr_skip_trips" for="skip_trips_ch"></label>
+			</div>
+		</div>
+	</div>
+</body>
+</html>
