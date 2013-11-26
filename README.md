@@ -10,7 +10,7 @@ At the bottom, there is a time line where you see playback progress, navigate al
 While a track is played, different kinds of data dynamically update on the screen. That can be speed, sensor values, parameters, pictures from messages, etc.
 
 ## License:
-LGPL: http://www.gnu.org/licenses/lgpl.html
+[The MIT License](../master/LICENSE-MIT)
 
 ## Requirements
  * Browser: Google Chome 20+, Firefox 15+, Safari 5+, IE 9+, Opera 10+
