@@ -45,10 +45,9 @@ $(window).resize(function(){
 	
 	if(map)
 		map.updateSize();
-});  
+});
 
 function ltranslate(){
-	$("#header .app_name").html($.localise.tr("Track player"));
 	$("#tr_interval").html($.localise.tr("Interval"));
 	$("#tr_unit").html($.localise.tr("Unit"));
 	$("#tr_tracks").html($.localise.tr("Tracks"));

@@ -144,7 +144,7 @@ function login(code) { /// Login result
 	var flags = wialon.item.Item.dataFlag.base | wialon.item.Unit.dataFlag.sensors | wialon.item.Item.dataFlag.customProps;
 	
 	sess.loadLibrary("itemIcon");
-	sess.loadLibrary("unitTripDetector");  
+	sess.loadLibrary("unitTripDetector");
 	sess.loadLibrary("unitSensors");
 	
 	sess.updateDataFlags(
@@ -153,7 +153,7 @@ function login(code) { /// Login result
 			var un = sess.getItems("avl_unit");
 			if (!un || !un.length) return;
 			un = wialon.util.Helper.sortItems(un);
-			for(var i=0; i<un.length; i++)	
+			for(var i=0; i<un.length; i++)
 				$("#units").append("<option value='"+ un[i].getId() +"'>"+ un[i].getName()+ "</option>");
 			
 			$("#add_btn").prop("disabled", false);
@@ -186,7 +186,7 @@ initMap = function(){
 	
 	map = new OpenLayers.GMap("map", options);
 // create layer
-	var layer = new OpenLayers.Layer.WebGIS("Gurtam Maps", "http://render.mapsviewer.com/hst-api.wialon.com", {isBaseLayer:true});
+	var layer = new OpenLayers.Layer.WebGIS("Gurtam Maps", wialon.core.Session.getInstance().getBaseGisUrl(), {isBaseLayer:true});
 	var render_layer = new OpenLayers.Layer.WebGIS("Routes", "", {
 		isBaseLayer: false,
 		res_name: wialon.core.Session.getInstance().getBaseUrl() + "/adfurl" + new Date().getTime() + "/avl_render",
@@ -195,19 +195,12 @@ initMap = function(){
 		displayInLayerSwitcher: false
 	});
 	
-	var gsat = new OpenLayers.Layer.Google("Google Satellite",
-		{type: google.maps.MapTypeId.SATELLITE, minZoom: 4, visibility:false}
-	);
-	
-	var gphy = new OpenLayers.Layer.Google("Google Roadmap",
-		{type: google.maps.MapTypeId.ROADMAP, minZoom: 4, visibility:false}
-	);
 	var osm = new OpenLayers.Layer.OSM(null, null, {minZoom:4});
 	
 	events_layer = new OpenLayers.Layer.Markers("Events", {displayInLayerSwitcher: false});
 	markers = new OpenLayers.Layer.Markers("Markers", {displayInLayerSwitcher: false});
 	
-	map.addLayers([layer, gsat, gphy, osm, render_layer, events_layer, markers]);
+	map.addLayers([layer, osm, render_layer, events_layer, markers]);
 	map.setBaseLayer(layer);
 	map.zoomToMaxExtent();
 	

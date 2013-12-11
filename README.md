@@ -1,4 +1,4 @@
-# Track Player, version 1.3: (May 8, 2013)
+# Track Player, version 1.4: (December 10, 2013)
 This is WEB application based on Apps from Gurtam (http://apps.wialon.com).
 
 ## Description
@@ -42,3 +42,6 @@ Working with applications in the GPS tracking system: http://docs.gurtam.com/en/
 - icon rotation now use units settings;
 - user setting stored between sessions;
 - minor bugs fixed.
+
+ * v1.4 (December 10, 2013)
+- Google Maps layers removed
