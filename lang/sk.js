@@ -83,7 +83,7 @@ TRANSLATIONS = {
 
 	"mph": "",
 
-	"kph": "",
+	"kph": "km/h",
 
 	"miles": "míle",
 
