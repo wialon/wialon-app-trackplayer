@@ -144,7 +144,7 @@ $(document).ready(function(){
 	$(window).resize();
 
 	LANG = get_html_var("lang");
-	if ((!LANG) || ($.inArray(LANG, ["en", "ru"]) == -1))
+	if ((!LANG) || ($.inArray(LANG, ["en", "ru", "sk"]) == -1))
 		LANG = "en";
 
 	$.localise('lang/', {language: LANG});
