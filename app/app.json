@@ -24,7 +24,7 @@
 		"url": "https://github.com/wialon/wialon-app-trackplayer"
 	},
 	"modules": [
-		"SDK"
+		"sdk"
 	],
 	"params": [
 		"Active SID",
@@ -38,7 +38,8 @@
 		"ru",
 		"sk"
 	],
-	"build_date": "2013-12-11",
+	"build_date": "2014-03-18",
+	"release_date": "2013-03-08",
 	"version": "1.4",
 	"keywords": [
 		"wialon",
