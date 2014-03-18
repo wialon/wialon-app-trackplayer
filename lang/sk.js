@@ -41,7 +41,7 @@ TRANSLATIONS = {
 
 	"Skip intervals between trips": "Skryť intervaly medzi trasami",
 
-	"Prev": "Predchádzajúci",
+	"Prev": "Pred",
 
 	"Next": "Ďaľší",
 
