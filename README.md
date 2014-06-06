@@ -1,4 +1,4 @@
-# Track Player, version 1.4: (December 10, 2013)
+# Track Player, version 1.5: (June 6, 2014)
 This is WEB application based on Apps from Gurtam (http://apps.wialon.com).
 
 ## Description
@@ -14,7 +14,7 @@ While a track is played, different kinds of data dynamically update on the scree
 
 ## Requirements
  * Browser: Google Chome 20+, Firefox 15+, Safari 5+, IE 9+, Opera 10+
- * Language: русский, English
+ * Language: русский, English, Slovenčina
  * Components: SDK
  * URL params: Active SID, Base URL, Host URL, Language, Current user
 
@@ -27,21 +27,30 @@ Working with applications in the GPS tracking system: http://docs.gurtam.com/en/
 - initial release
 
  * v1.1 (March 15, 2013)
-- Google Maps API replaced by OpenLayers;
-- now unit icon can be rotated while playing;
-- problem with stack overflow resolved;
-- minor bugs fixed.
+- Google Maps API replaced by OpenLayers
+- now unit icon can be rotated while playing
+- problem with stack overflow resolved
+- minor bugs fixed
 
  * v1.2 (April 24, 2013)
-- English language supported;
-- problem with user units list solved. 
+- English language supported
+- problem with user units list solved
 
  * v1.3 (May 8, 2013)
-- Mobile devices touch supported;
-- OpenStreetMap layer added;
-- icon rotation now use units settings;
-- user setting stored between sessions;
-- minor bugs fixed.
+- mobile devices touch supported
+- OpenStreetMap layer added
+- icon rotation now use units settings
+- user setting stored between sessions
+- minor bugs fixed
 
  * v1.4 (December 10, 2013)
 - Google Maps layers removed
+
+ * v1.5 (June 6, 2014)
+- fix long unit name display
+- changed the app name to "Track Player"
+- check ACL "Query reports or messages"
+- add docs link
+- date/time format based on Wialon settings
+- fix leading/ending period speed
+- fix bug on delete some tracks

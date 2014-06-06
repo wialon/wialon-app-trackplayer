@@ -53,7 +53,6 @@ var speed = 100;                // !!!! animation time miliseconds
 var msgSize = 500;              // !!!! message load at once
 var messagesLoadSpeed = 5000;   // !!!! load ?msgSize+1? every ?messagesLoadSpeed? miliseconds
 var minRange = 600;            // !!!! min zoom range in sec
-var use_us_metrics = 0;         // !!!! miles or kilometers
 var timezone = 0;               // !!!! timezone offset in seconds
 var skipBeetweenTrips = false;
 
@@ -124,7 +123,7 @@ function init_sdk() { /// Init SDK
 	if (!url) url = get_html_var("hostUrl");
 	if (!url) return;
 	wialon.core.Session.getInstance().initSession(url);
-	wialon.core.Session.getInstance().duplicate(get_html_var("sid"), get_html_var("user"), true, login);
+	wialon.core.Session.getInstance().duplicate(get_html_var("sid"), get_html_var("user") || '', true, login);
 	
 }
 
@@ -133,13 +132,15 @@ function login(code) { /// Login result
 	
 	var sess = wialon.core.Session.getInstance(); 
 	var user = sess.getCurrUser();
-	use_us_metrics = user ? parseInt(user.getCustomProperty("us_units", "0"), 10) : 0;
 	
 	tz = wialon.util.DateTime.getTimezoneOffset();
 	dst = wialon.util.DateTime.getDSTOffset(sess.getServerTime());
 	
-	changeTime(0);
-	setTimeRange();
+	// preload user dateTime format
+	getUserDateTimeFormat(function(){
+		changeTime(0);
+		setTimeRange();
+	});
 	
 	var flags = wialon.item.Item.dataFlag.base | wialon.item.Unit.dataFlag.sensors | wialon.item.Item.dataFlag.customProps;
 	
@@ -151,6 +152,7 @@ function login(code) { /// Login result
 		[{type: "type", data: "avl_unit", flags: flags, mode: 0}],
 		function (code) { if (code) return;
 			var un = sess.getItems("avl_unit");
+			un = wialon.util.Helper.filterItems(un, wialon.item.Item.accessFlag.execReports);
 			if (!un || !un.length) return;
 			un = wialon.util.Helper.sortItems(un);
 			for(var i=0; i<un.length; i++)
@@ -160,6 +162,7 @@ function login(code) { /// Login result
 			
 		}
 	);
+
 	initMap();
 	//if(map) initUI();
 }
@@ -255,8 +258,16 @@ changeTime = function(value){
 	tt.setSeconds(0);
 	tt.setMilliseconds(0);
 	
+	tnow.setHours(23);
+	tnow.setMinutes(59);
+	tnow.setSeconds(59);
+	tnow.setMilliseconds(999);
+
 	value = parseInt(value, 10);
-		
+	
+	$("#t_begin").datetimepicker("option", "defaultDate", tt);
+	$("#t_end").datetimepicker("option", "defaultDate", tnow);
+
 	switch (value){
 		case 0: /* today */
 			$("#t_begin").datetimepicker( "setDate", tt);
@@ -311,7 +322,7 @@ setTimeRange = function(){
 	
 	if(t_to == to && t_from == from){
 	} else if(t_to<=t_from){
-		alert($.localise.tr("Login error, restart the application")); return;
+		alert($.localise.tr("Wrong datetime format")); return;
 	} else {
 		if(infobox) infobox.hide();
 		from = t_from;
@@ -532,9 +543,172 @@ deleteDataStorage = function(val){
 	}
 };
 
+getUserDateTimeFormat = (function(){
+	var format = false;
 
+	var getAdaptedDateFormat = function(wialonDateFormat){
+		var s = wialonDateFormat.replace(/(%\w)|_|%%/g, function(str){
+			switch (str) {
+				case "%Y": return 'yy';
+				case "%y": return 'y';
+				// month
+				case "%B": return 'MM';   // MM - month name long
+				case "%b": return 'M';    // M - month name short
+				case "%m": return 'mm';   // mm - month of year (two digit)
+				case "%l": return 'm';    // m - month of year (no leading zero)
+				// day
+				case "%A": return 'DD';   // DD - day name long
+				case "%a": return 'D';    // D - day name short
+				case "%E": return 'dd';   // dd - (two digit)
+				case "%e": return 'd';    // d - (no leading zero)
+				// for time format:
+				case "%H": return 'HH';   // 24h
+				case "%I": return 'hh';   // 12h
+				case "%p": return 'TT';   // AM/PM
+				case "%M": return 'mm';
+				default: return '';
+			}
+		});
+
+		return s;
+	};
+
+	/**
+	 * getUserDateTimeFormat for current user
+	 * @param  {boolean} timeOnly get timeOnly format (without date)
+	 * @return {string}          format to use in wialon.util.DateTime.formatDate or wialon.util.DateTime.formatDate
+	 */
+	var getUserDateTimeFormat = function getUserDateTimeFormat(callback){
+		if (!format) {
+			wialon.core.Session.getInstance().getCurrUser().getLocale(function(code, locale){
+				var t;
+
+				!locale && (locale = {});
+				locale.def = '%Y-%m-%E_%H:%M:%S';
+				!locale.fd && (locale.fd = locale.def);
+				typeof locale.wd === 'undefined' && (locale.wd = 1);
+
+				t = wialon.util.DateTime.convertFormat(locale.fd, true);
+				t = t.split('_');
+
+				format = {
+					fd: locale.fd,
+					firstDay: locale.wd,
+					date: t[0],
+					time: t[1],
+					dateTime: t[0] + '_' + t[1],
+					dateTimeToPrint: t[0] + ' ' + t[1]
+				};
+
+				// Set settings for datepicker
+				var tr_month =[
+					$.localise.tr("January"),$.localise.tr("February"),$.localise.tr("March"),$.localise.tr("April"),
+					$.localise.tr("May"),$.localise.tr("June"),$.localise.tr("July"),$.localise.tr("August"),
+					$.localise.tr("September"),$.localise.tr("October"),$.localise.tr("November"),$.localise.tr("December")
+				];
+				var tr_month_short =[$.localise.tr("Jan"), $.localise.tr("Feb"), $.localise.tr("Mar"), $.localise.tr("Apr"),
+					$.localise.tr("May"), $.localise.tr("Jun"), $.localise.tr("Jul"), $.localise.tr("Aug"),
+					$.localise.tr("Sep"), $.localise.tr("Oct"), $.localise.tr("Nov"), $.localise.tr("Dec")];
+
+				var tr_days =[
+					$.localise.tr("Sunday"),$.localise.tr("Monday"),$.localise.tr("Tuesday"),$.localise.tr("Wednesday"),
+					$.localise.tr("Thursday"),$.localise.tr("Friday"),$.localise.tr("Saturday")
+				];
+
+				var tr_days_short =[
+					$.localise.tr("Sun"),$.localise.tr("Mon"),$.localise.tr("Tue"),$.localise.tr("Wed"),
+					$.localise.tr("Thu"),$.localise.tr("Fri"),$.localise.tr("Sat")
+				];
+
+				var tr_days_min =[
+					$.localise.tr("Su"),$.localise.tr("Mo"),$.localise.tr("Tu"),$.localise.tr("We"),
+					$.localise.tr("Th"),$.localise.tr("Fr"),$.localise.tr("Sa")
+				];
+
+				// Update locale days & month names
+				wialon.util.DateTime.setLocale(
+					tr_days,
+					tr_month,
+					tr_days_short,
+					tr_month_short
+				);
+
+				if (LANG !== 'en') {
+					$.datepicker.regional[LANG] = {
+						monthNames: tr_month,
+						monthNamesShort: tr_month_short,
+						dayNames: tr_days,
+						dayNamesShort: tr_days_short,
+						dayNamesMin: tr_days_min,
+						isRTL: false,
+						showMonthAfterYear: false,
+						yearSuffix: ''};
+
+					$.datepicker.setDefaults($.datepicker.regional[LANG]);
+				}
+
+				var settings = {
+					showSecond: true,
+					dateFormat: getAdaptedDateFormat( locale.fd.split('_')[0] ),
+					timeFormat: format.time,
+					// maxDate: maxDate,
+					firstDay: format.firstDay,
+					showButtonPanel:false,
+					prevText: $.localise.tr("Prev"),
+					nextText: $.localise.tr("Next"),
+					monthNames: tr_month,
+					dayNames: tr_days,
+					dayNamesShort: tr_days_short,
+					dayNamesMin: tr_days_min,
+					timeText: $.localise.tr("Time"),
+					hourText: $.localise.tr("Hours"),
+					minuteText: $.localise.tr("Minutes"),
+					secondText: $.localise.tr("Seconds"),
+					controlType: "select"
+				};
+
+				// Test time format
+				var tDate = new Date();
+				tDate.setHours(0);
+				tDate.setMinutes(0);
+				tDate.setSeconds(0);
+				tDate.setMilliseconds(0);
+				var tMs = (tDate.getTime() / 1000 - 7 * 24 * 60 * 60) * 1000; // a week ago
+				var tDate = new Date(tMs);
+				var $testInput = $('<input>');
+				$testInput.datetimepicker(settings);
+				$testInput.datetimepicker('setDate', tDate);
+				if ( $testInput.datetimepicker('getDate').getTime() !== tMs ) {
+					settings.dateFormat = getAdaptedDateFormat( locale.def.split('_')[0] );
+					settings.timeFormat = 'HH:mm:ss';
+				}
+				
+				$("#t_begin").datetimepicker(settings);
+				$("#t_end").datetimepicker(settings);
+				
+				$("#t_begin").change( function(){
+					var t_from = Math.floor($("#t_begin").datetimepicker("getDate")/1000);
+					t_from = get_abs_time(t_from, tz, dst);
+					$("#set_interval_btn").prop("disabled",t_from==from);
+				});
+				$("#t_end").change( function(){
+					var t_to = Math.floor($("#t_end").datetimepicker("getDate")/1000);
+					t_to = get_abs_time(t_to, tz, dst);
+					$("#set_interval_btn").prop("disabled",t_to==to);
+				});
+
+				callback();
+			});
+		}
+
+		return format;
+	};
+
+	return getUserDateTimeFormat;
+}());
 
 tickFormat = function(v, axis){
+	var wialonTimeFormat = getUserDateTimeFormat().fd.split('_')[1].replace('H', 'h');
 	var timeUnitSize = {
 		"second": 1000,
 		"minute": 60 * 1000,
@@ -553,12 +727,12 @@ tickFormat = function(v, axis){
 	var suffix = (opts.twelveHourClock) ? " %p" : "";
 	
 	if (t < timeUnitSize.minute)
-		fmt = "%h:%M:%S" + suffix;
+		fmt = wialonTimeFormat + suffix;
 	else if (t < timeUnitSize.day) {
 		if (span < 2 * timeUnitSize.day)
-			fmt = "%h:%M" + suffix;
+			fmt = wialonTimeFormat + suffix;
 		else
-			fmt = "%b %d %h:%M" + suffix;
+			fmt = "%b %d " + wialonTimeFormat + suffix;
 	}
 	else if (t < timeUnitSize.month)
 		fmt = "%b %d";
@@ -735,6 +909,7 @@ initTrack = function(layer, color){
 	var unitId = layer.getUnitId();
 	var sess = wialon.core.Session.getInstance();
 	var unit =sess.getItem( unitId );
+	var unitMetrics = unit.getMeasureUnits();
 	var n = unit.getName();
 	var first = layer.getFirstPoint();
 	var last = layer.getLastPoint();
@@ -817,13 +992,13 @@ initTrack = function(layer, color){
 					"<div id='commons_"+unitId+"_speed' class='unit_speed' style='color:#"+color.substr(2)+"'>"+
 						"<img class='icon' id='unit_speed_icon_"+unitId+"' alt='Speed' src='img/0.png'/>"+
 						"<span id='unit_speed_"+unitId+"' title='"+$.localise.tr("Speed")+"'>0</span>"+
-						"<span class='km'>"+$.localise.tr(use_us_metrics?"mph":"kph")+"</span>"+
+						"<span class='km'>"+$.localise.tr(unitMetrics ? "mph" : "kph")+"</span>"+
 					"</div>"+
 				"</div>"+
 			"</div>"+
 		"</div><pre/>").appendTo("#tracks_list");
 		
-		DataStorage[unitId].commons = { speed:{show:true, name:$.localise.tr("Speed"), value:0, metrics: $.localise.tr(use_us_metrics?"mph":"kph")} };
+		DataStorage[unitId].commons = { speed:{show:true, name:$.localise.tr("Speed"), value:0, metrics: $.localise.tr(unitMetrics ? "mph" : "kph")} };
 		var sens = unit.getSensors();
 		for(i in sens)
 			DataStorage[unitId].sensors[sens[i].id]={show:false, name:sens[i].n, value:"-"};
@@ -833,14 +1008,14 @@ initTrack = function(layer, color){
 	/* head info - unitName, mileage and first-last points */
 	var mileage = layer.getMileage();
 	if (typeof mileage != 'undefined') {
-		if (use_us_metrics) mileage = mileage / 1000.0 * 0.621;
-		else mileage = mileage / 1000.0;
+		mileage /= 1000;
+		unitMetrics && (mileage *= 0.621);
 	} else mileage = "0";
 	
 	$("#info_"+unitId).html(
-		n+" /"+wialon.util.String.sprintf("%.2f&nbsp;%s ",mileage, $.localise.tr(use_us_metrics?"miles":"km"))+"/<br/>"+
+		n+" /"+wialon.util.String.sprintf("%.2f&nbsp;%s ",mileage, $.localise.tr(unitMetrics ? "miles" : "km"))+"/<br/>"+
 		"<a href='#' class='first' onclick='slideToTime("+first.time+");return false;' title='"+$.localise.tr("Go to the first message")+"'><img src='img/first.png' alt='Beginning'/></a>"+
-		"<span>"+ wialon.util.DateTime.formatTime(first.time) +" - "+ wialon.util.DateTime.formatTime(last.time) +"</span>"+
+		"<span>"+ wialon.util.DateTime.formatTime(first.time, 2, getUserDateTimeFormat().dateTimeToPrint) +" - "+ wialon.util.DateTime.formatTime(last.time, 0, getUserDateTimeFormat().dateTimeToPrint) +"</span>"+
 		"<a href='#' class='last' onclick='slideToTime("+last.time+");return false;' title='"+$.localise.tr("Go to the last message")+"'><img src='img/last.png' alt='End'/></a>"
 	);
 	
@@ -876,7 +1051,7 @@ getUnitHoverContent = function(id, time, content){
 				content += "<div class='row'>"+DataStorage[id].sensors[s].name+"<span>"+DataStorage[id].sensors[s].value+"</span></div>";
 	}
 	
-	var datetime = wialon.util.DateTime.formatTime(time).split(' ');
+	var datetime = wialon.util.DateTime.formatTime(time, 0, getUserDateTimeFormat().dateTime).split('_');
 	
 	content = "<div class='text'><div class='header'>"+
 		"<div class='row'>"+DataStorage[id].unit.getName()+"</div>"+
@@ -1197,10 +1372,15 @@ initMessages = function(id){ // get messages for item
 	}
 	wialon.core.Remote.getInstance().finishBatch( function(code){ if(code){ alert("Init messages error"); return;} });
 	loadMessages(id, 0);
+	if (intCount > 1) {
+		loadMessages(id, intCount - 1);
+	}
 };
 
 loadMessages = function(id, l){
-	
+	if (!DataStorage[id]) {
+		return;
+	}
 	// check if already loaded
 	if( DataStorage[id] && DataStorage[id].messages[l] && DataStorage[id].messages[l].length !==0){
 		return;
@@ -1212,6 +1392,16 @@ loadMessages = function(id, l){
 			if(DataStorage[id] && DataStorage[id].version!=version)
 				return;
 			
+			// First message speed
+			if (!l && DataStorage[id].first.time === data[0].t) {
+				DataStorage[id].first.speed = data[0].pos.s;
+			}
+
+			// Last message speed
+			if ( to_msg == DataStorage[id].layer.getMessagesCount() && DataStorage[id].last.time === data[data.length-1].t ) {
+				DataStorage[id].last.speed = data[data.length-1].pos.s;
+			}
+
 			if(code || !DataStorage[id] || !DataStorage[id].messages[l] || DataStorage[id].messages[l].length) return;
 			DataStorage[id].messages[l] = data; // save messages
 			
@@ -1332,8 +1522,7 @@ slideToTime = function(time, play){
 
 showTime = function(time){
 	if(typeof(wialon)=="undefined") return;
-	var str = (wialon.util.DateTime.formatTime(time)).split(' ');
-	
+	var str = (wialon.util.DateTime.formatTime(time, 0, getUserDateTimeFormat().dateTime)).split('_');
 	$("#t_curr .d").html(str[0]);
 	$("#t_curr .t").html(str[1]);
 	
@@ -1407,12 +1596,13 @@ moveCar = function(time){
 			if(DataStorage[i].follow) LatLngList.push(latlng);
 			
 			/* speed */
-			var sp = use_us_metrics? pos.speed*0.621 : pos.speed;
+			var sp = pos.speed || 0;
+			DataStorage[i].unit.getMeasureUnits() && (sp *= 0.621);
 			
 			if(DataStorage[i].commons.speed.show)
 				hoverContent += "<div class='row'>"+$.localise.tr("Speed")+"<span>"+sp.toFixed(2)+" "+DataStorage[i].commons.speed.metrics+"</span></div>";
 			
-			DataStorage[i].commons.speed.value = parseInt(sp,10);
+			DataStorage[i].commons.speed.value = Math.round(sp);
 			$("#unit_speed_"+i).html( DataStorage[i].commons.speed.value );
 			sp = sp - sp%10 + (sp>0?10:0);
 			$("#unit_speed_icon_"+i).attr("src","img/"+(sp<180?(sp<60?sp:sp-(sp-60)%20):180)+".png");
@@ -1484,7 +1674,14 @@ findPos = function(time, i){
 	var obj = { "ok":true, "move":true, "time":time, "speed":0 };
 	var first = DataStorage[i].first;
 	var last = DataStorage[i].last;
-   
+	
+	if (time === first.time) {
+		obj.speed = first.speed || 0;
+	}
+	else if (time === last.time) {
+		obj.speed = last.speed || 0;
+	}
+
 	if( time <= first.time ){// before first
 		obj.x = first.lon;
 		obj.y = first.lat;

@@ -46,6 +46,8 @@ TRANSLATIONS = {
 	"Next": "",
 	
 	"Login error, restart the application": "",
+
+	"Wrong datetime format": "",
 	
 	"Invalid time interval": "",
 	
@@ -83,7 +85,7 @@ TRANSLATIONS = {
 	
 	"mph": "",
 	
-	"kph": "",
+	"kph": "km/h",
 	
 	"miles": "",
 	

@@ -46,6 +46,8 @@ TRANSLATIONS = {
 	"Next": "Вперед",
 	
 	"Login error, restart the application": "Ошибка логина, перезапустите приложение",
+
+	"Wrong datetime format": "Неверный формат даты",
 	
 	"Invalid time interval": "Неверный интервал времени",
 	
@@ -81,7 +83,7 @@ TRANSLATIONS = {
 	
 	"Speed": "Скорость",
 	
-	"mph": "м/ч",
+	"mph": "ми/ч",
 	
 	"kph": "км/ч",
 	

@@ -150,6 +150,8 @@ $(document).ready(function(){
 	$.localise('lang/', {language: LANG});
 	ltranslate();
 
+	$('#help').append('<a target="_blank" href="/docs/' + (LANG === 'ru' ? 'ru' : 'en') + '/trackplayer.html"><img src="img/help.png"></a>');
+
 	$("#color .template").click( function(){
 		$("#color .template").removeClass("active").children("div").hide();
 		$(this).addClass("active").children("div").show();
@@ -184,78 +186,6 @@ $(document).ready(function(){
 
 	init();
 
-	var tr_month =[
-		$.localise.tr("January"),$.localise.tr("February"),$.localise.tr("March"),$.localise.tr("April"),
-		$.localise.tr("May"),$.localise.tr("June"),$.localise.tr("July"),$.localise.tr("August"),
-		$.localise.tr("September"),$.localise.tr("October"),$.localise.tr("November"),$.localise.tr("December")
-	];
-
-	var tr_days =[
-		$.localise.tr("sunday"),$.localise.tr("monday"),$.localise.tr("tuesday"),$.localise.tr("wednesday"),
-		$.localise.tr("thursday"),$.localise.tr("friday"),$.localise.tr("saturday")
-	];
-
-	var tr_days_short =[
-		$.localise.tr("sun"),$.localise.tr("mon"),$.localise.tr("tue"),$.localise.tr("wed"),
-		$.localise.tr("thu"),$.localise.tr("fri"),$.localise.tr("sat")
-	];
-
-	var tr_days_min =[
-		$.localise.tr("Su"),$.localise.tr("Mo"),$.localise.tr("Tu"),$.localise.tr("We"),
-		$.localise.tr("Th"),$.localise.tr("Fr"),$.localise.tr("Sa")
-	];
-
-	$("#t_begin").datetimepicker({
-		showSecond: true,
-		dateFormat: "yy-mm-dd",
-		timeFormat: "HH:mm:ss",
-		maxDate: new Date(),
-		firstDay: 1,
-		showButtonPanel:false,
-		prevText: $.localise.tr("Prev"),
-		nextText: $.localise.tr("Next"),
-		monthNames: tr_month,
-		dayNames: tr_days,
-		dayNamesShort: tr_days_short,
-		dayNamesMin: tr_days_min,
-		timeText: $.localise.tr("Time"),
-		hourText: $.localise.tr("Hours"),
-		minuteText: $.localise.tr("Minutes"),
-		secondText: $.localise.tr("Seconds"),
-		controlType: "select"
-	});
-	
-	$("#t_end").datetimepicker({
-		showSecond: true,
-		dateFormat: "yy-mm-dd",
-		timeFormat: "HH:mm:ss",
-		maxDate: new Date(),
-		firstDay: 1,
-		showButtonPanel:false,
-		prevText: $.localise.tr("Prev"),
-		nextText: $.localise.tr("Next"),
-		monthNames: tr_month,
-		dayNames: tr_days,
-		dayNamesShort: tr_days_short,
-		dayNamesMin: tr_days_min,
-		timeText: $.localise.tr("Time"),
-		hourText: $.localise.tr("Hours"),
-		minuteText: $.localise.tr("Minutes"),
-		secondText: $.localise.tr("Seconds"),
-		controlType: "select"
-	});
-	
-	$("#t_begin").change( function(){
-		var t_from = Math.floor($("#t_begin").datetimepicker("getDate")/1000);
-		t_from = get_abs_time(t_from, tz, dst);
-		$("#set_interval_btn").prop("disabled",t_from==from);
-	});
-	$("#t_end").change( function(){
-		var t_to = Math.floor($("#t_end").datetimepicker("getDate")/1000);
-		t_to = get_abs_time(t_to, tz, dst);
-		$("#set_interval_btn").prop("disabled",t_to==to);
-	});
-	
 	$("#slider").slider({
 		range: "min",
 		step: 1,

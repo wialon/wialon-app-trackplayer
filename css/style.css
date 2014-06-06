@@ -13,6 +13,12 @@ body, dt, dd{
 	user-select: none;
 }
 
+#help {
+	float: right;
+	margin-top: 26px;
+	margin-right: 26px;
+}
+
 /* OpenLayers styles */
 .layersDiv {padding-bottom: 5px !important;}
 .layersDiv .baseLbl {display:none !important;}
@@ -24,8 +30,8 @@ body, dt, dd{
 .grey {color:#6E7884 !important; cursor: default !important;}
 
 #header{ width:100%; height:72px; font-size: 24px; }
-#header .logo{ margin:20px 10px 0px 26px; height:36px; width:152px; }
-#header .app_name{ display: inline-block; margin-top: 26px; vertical-align: top; color: #6E7884; }
+#header .logo{ margin:20px 10px 0px 26px; height:36px; float:left;}
+#header .app_name{ display: inline-block; margin-top: 26px; vertical-align: top; color: #6E7884; float:left;}
 
 #layout{ background:#161b1f; position:relative; width:100%; overflow:hidden;}
 
@@ -128,10 +134,20 @@ body, dt, dd{
 #tracks_list{ border-top:1px solid #394656; overflow-y: auto; }
 #tracks_list pre{border-top:1px solid #394656; margin-top:1px;}
 .unit_track{ padding:10px 0px 0px; position:relative; margin-top:1px; min-height:26px; }
-.unit_track .info{ display:inline-block; color:#FFF; vertical-align:top; margin-left:10px; font-size:14px;}
+.unit_track .info{ display:inline-block; color:#FFF; vertical-align:top; margin-left:10px; font-size:14px; text-overflow: ellipsis; overflow: hidden; max-width: 270px; white-space: nowrap;}
 .unit_track .first, .unit_track .last{ color:inherit; text-decoration:none; margin:0px 3px;}
 .unit_track .first img, .unit_track .last img{ width:11px; height:10px; }
-.unit_track .info span{ font-style:italic; font-size:10px; color:#8e959d; vertical-align: middle;}
+.unit_track .info span {
+	font-style:italic;
+	font-size:10px;
+	color:#8e959d;
+	vertical-align: middle;
+	max-width: 236px;
+	display: inline-block;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
 .unit_track .wrapper{ text-align:right; position:relative; min-height:20px; }
 .unit_track .wrapper a{ position:absolute; width:340px; right:0px; top:0px; z-index:1; }
 .unit_track .wrapper img{ float:right; margin: 5px 10px; }

@@ -38,9 +38,14 @@
 		"ru",
 		"sk"
 	],
-	"build_date": "2014-03-18",
+	"links": {
+		"github": "https://github.com/wialon/wialon-app-trackplayer",
+		"youtube": "http://youtu.be/Vs08-pKw-fI"
+	},
+	"docs": {},
+	"build_date": "2014-06-06",
 	"release_date": "2013-03-08",
-	"version": "1.4",
+	"version": "1.5",
 	"keywords": [
 		"wialon",
 		"wialon-apps",
