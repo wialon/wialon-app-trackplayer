@@ -119,12 +119,17 @@ init = function() { // We are ready now
 };
 
 function init_sdk() { /// Init SDK
-	var url = get_html_var("baseUrl");
-	if (!url) url = get_html_var("hostUrl");
-	if (!url) return;
+	var url = get_html_var("baseUrl") || get_html_var("hostUrl");
+	var user = get_html_var("user") || "";
+	var sid = get_html_var("sid");
+	var authHash = get_html_var("authHash");
+
 	wialon.core.Session.getInstance().initSession(url);
-	wialon.core.Session.getInstance().duplicate(get_html_var("sid"), get_html_var("user") || '', true, login);
-	
+	if (authHash) {
+		wialon.core.Session.getInstance().loginAuthHash(authHash, login);
+	} else if (sid) {
+		wialon.core.Session.getInstance().duplicate(sid, user, true, login);
+	}
 }
 
 function login(code) { /// Login result
@@ -195,7 +200,8 @@ initMap = function(){
 		res_name: wialon.core.Session.getInstance().getBaseUrl() + "/adfurl" + new Date().getTime() + "/avl_render",
 		compress_url: false,
 		img_name: "" + wialon.core.Session.getInstance().getId(),
-		displayInLayerSwitcher: false
+		displayInLayerSwitcher: false,
+		skip_user_id: true
 	});
 	
 	var osm = new OpenLayers.Layer.OSM(null, null, {minZoom:4});

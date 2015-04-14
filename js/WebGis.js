@@ -7,6 +7,8 @@ OpenLayers.Layer.WebGIS = OpenLayers.Class(OpenLayers.Layer.TMS, {
 	minZoom: 4,
 	url: "",
 	urls: [],
+	user_id: 0,
+	skip_user_id: false,
 	buffer: 1,
 	transitionEffect: null,
 	/* Functions */
@@ -21,6 +23,12 @@ OpenLayers.Layer.WebGIS = OpenLayers.Class(OpenLayers.Layer.TMS, {
 			for (var i = 0; i < arr.length; i++)
 				this.urls.push(arr[i]);
 			this.url = arr[0];
+		}
+		if (wialon) {
+			this.user_id = wialon.core.Session.getInstance().getCurrUser().getId();
+		}
+		if (this.skip_user_id) {
+			this.skip_user_id = true;
 		}
 	},
 	/// Determine tile URL
@@ -40,7 +48,14 @@ OpenLayers.Layer.WebGIS = OpenLayers.Class(OpenLayers.Layer.TMS, {
 				var index = x % this.urls.length;
 				url = this.urls[Math.floor(index)];
 			}
-			url += this.res_name + "/" + x + "_" + y + "_" + (17 - z) + "/" + this.img_name + ".png";
+			if (!this.user_id && wialon) {
+				this.user_id = wialon.core.Session.getInstance().getCurrUser().getId();
+			}
+			if (this.skip_user_id) {
+				url += this.res_name + "/" + x + "_" + y + "_" + (17 - z) + "/" + this.img_name + ".png";
+			} else {
+				url += this.res_name + "/" + x + "_" + y + "_" + (17 - z) + "/" + this.user_id + "/" + this.img_name + ".png";
+			}
 			if (!this.compress_url)
 				url += "?m=" + this.map_tags;
 			return url;
