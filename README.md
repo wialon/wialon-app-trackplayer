@@ -1,4 +1,4 @@
-# Track Player, version 1.5: (June 6, 2014)
+# Track Player, version 1.6: (May 07, 2015)
 This is WEB application based on Apps from Gurtam (http://apps.wialon.com).
 
 ## Description
@@ -54,3 +54,8 @@ Working with applications in the GPS tracking system: http://docs.gurtam.com/en/
 - date/time format based on Wialon settings
 - fix leading/ending period speed
 - fix bug on delete some tracks
+
+ * v1.6 (May 07, 2015)
+- tons on code refactored
+- OpenLayers replaced with Leaflet
+- hotkeys control supported

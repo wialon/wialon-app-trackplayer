@@ -5,7 +5,7 @@
 	http://apps.wialon.com
 
 	 Copyright:
-     2002-2013 Gurtam, http://gurtam.com
+     2002-2015 Gurtam, http://gurtam.com
 
 	 License:
      MIT: https://github.com/wialon/wialon-app-trackplayer/blob/master/LICENSE-MIT
@@ -90,6 +90,5 @@ Sensors.prototype.get_formatted_value = function(sensor, value) {
 		else
 			value = wialon.util.String.sprintf("%.2f %s", value, sensor.m);
 	}
-	return value;	
+	return value;
 }
-
