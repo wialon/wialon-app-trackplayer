@@ -14,7 +14,7 @@ While a track is played, different kinds of data dynamically update on the scree
 
 ## Requirements
  * Browser: Google Chome 20+, Firefox 15+, Safari 5+, IE 9+, Opera 10+
- * Language: русский, English, Slovenčina
+ * Language: русский, English, Slovenčina, Finnish
  * Components: SDK
  * URL params: Active SID, Base URL, Host URL, Language, Current user
 

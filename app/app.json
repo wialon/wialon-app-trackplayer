@@ -36,14 +36,15 @@
 	"language": [
 		"en",
 		"ru",
-		"sk"
+		"sk",
+		"fi"
 	],
 	"links": {
 		"github": "https://github.com/wialon/wialon-app-trackplayer",
 		"youtube": "http://youtu.be/Vs08-pKw-fI"
 	},
 	"docs": {},
-	"build_date": "2015-05-07",
+	"build_date": "2015-09-07",
 	"release_date": "2013-03-08",
 	"version": "1.6",
 	"keywords": [

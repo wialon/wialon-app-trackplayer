@@ -85,13 +85,14 @@ function ie() { /// IE check
 }
 
 function get_html_var(name) { /// Fetch varable from 'GET' request
-	if (!name) return null;
-	var pairs = decodeURIComponent(document.location.search.substr(1)).split("&");
+	if (!name) {
+		return null;
+	}
+	var pairs = document.location.search.substr(1).split("&");
 	for (var i = 0; i < pairs.length; i++) {
 		var pair = pairs[i].split("=");
-		if (pair[0] == name) {
-			pair.splice(0, 1);
-			return pair.join("=");
+		if (decodeURIComponent(pair[0]) === name) {
+			return decodeURIComponent(pair[1]);
 		}
 	}
 	return null;
@@ -2094,7 +2095,7 @@ $(document).ready(function(){
 	$(window).resize();
 
 	LANG = get_html_var("lang");
-	if ((!LANG) || ($.inArray(LANG, ["en", "ru", "sk"]) == -1))
+	if ((!LANG) || ($.inArray(LANG, ["en", "ru", "sk", "fi"]) == -1))
 		LANG = "en";
 
 	$.localise('lang/', {language: LANG});
