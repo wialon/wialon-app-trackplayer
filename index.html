@@ -1,36 +1,25 @@
 <!DOCTYPE html>
-<!--************************************************************************
-	
-	Apps - WEB applications, developed on the basis of SDK for Wialon Hosting and Wialon Kit.
-	
-	http://apps.wialon.com
-	
-	Copyright:
-	2002-2015 Gurtam, http://gurtam.com
-	License:
-	MIT: https://github.com/wialon/wialon-app-trackplayer/blob/master/LICENSE-MIT
-	
-************************************************************************ !-->
-
 <html>
 <head>
-	<title>Track Player</title>
+	<title></title>
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
-	
-	<link href="img/favicon.ico" rel="icon" type="image/x-icon" />
 
+	<link rel="shortcut icon" href="img/favicon.png" type="image/x-icon">
+
+	<link rel="stylesheet" type="text/css" href="css/jquery-ui-1.10.0.custom.min.css"/>
+	<link rel="stylesheet" type="text/css" href="css/jquery-ui-timepicker-addon.css"/>
 	<link rel="stylesheet" type="text/css" href="css/leaflet.css"/>
 	<link rel="stylesheet" type="text/css" href="css/style.css"/>
 	<script src='js/leaflet.js'></script>
-	
+
 	<!--[if lte IE 9]><script language="javascript" type="text/javascript" src="js/excanvas.min.js"></script><![endif]-->
-	
+
 	<script src="js/jquery.js"></script>
 	<script src="js/jquery-ui.js"></script>
 	<script src="js/jquery.ui.touch-punch.min.js"></script>
 	<script src="js/timepicker.js"></script>
 	<script src="js/jquery.localisation.js"></script>
-	
+
 	<script src="js/jquery.flot.js"></script>
 	<script src="js/jquery.flot.navigate.js"></script>
 	<script src="js/jquery.flot.fillarea.js"></script>
@@ -41,10 +30,22 @@
 	<script src="js/messages.js"></script>
 	<script src="js/sensors.js"></script>
 	<script src="js/script.js"></script>
+	<script>
+		var availableLanguages=null;
+		var documentationLink=null;
+		var is_white=null;
+		var APP_CONFIG = {};
+		function appPredefineVariables(app_langs,doc_link,is_whitelabeled,config){
+			availableLanguages=app_langs;
+			documentationLink=is_whitelabeled?(config.help_url_link ? decodeURIComponent(config.help_url_link) : null):doc_link;
+			is_white=is_whitelabeled;
+			APP_CONFIG=config;
+		}
+	</script>
 </head>
 <body>
 	<div id="header">
-		<img class="logo" src="img/logo.png"/><span class="app_name">Track Player</span><div id="help"></div>
+		<img class="logo" src="img/logo.svg"/><span class="app_name"></span><div id="help"></div>
 	</div>
 	<div id="layout">
 		<div id="menu">
@@ -75,7 +76,7 @@
 					<button disabled id="play_btn" type="button"></button>
 					<div id="t_curr"><span class="d"></span><span class="t"></span></div>
 					<button disabled id="tostart_btn" type="button"></button>
-					<button disabled id="stepleft_btn" type="button"></button> 
+					<button disabled id="stepleft_btn" type="button"></button>
 				</div>
 				<div class="timeline_wrapper">
 					<div id="range"></div>

@@ -16,7 +16,7 @@
 /* global wialon */
 
 var callbacks = {}; // system variables
-var timeoutId;
+var layerUpdateTimeout = null;
 var layer_temp = {
 	"layerName":"",
 	"itemId":0,
@@ -35,6 +35,7 @@ var time_prev, last_graph_click=0;
 
 /* maps variables */
 var map,
+	renderLayer,
 	eventsLayer,
 	markersLayer,
 	stopIcon,
@@ -84,7 +85,7 @@ function ie() { /// IE check
 	return (navigator.appVersion.indexOf("MSIE 6") != -1 || navigator.appVersion.indexOf("MSIE 7") != -1 || navigator.appVersion.indexOf("MSIE 8") != -1);
 }
 
-function get_html_var(name) { /// Fetch varable from 'GET' request
+function get_html_var(name, def) { /// Fetch varable from 'GET' request
 	if (!name) {
 		return null;
 	}
@@ -95,7 +96,7 @@ function get_html_var(name) { /// Fetch varable from 'GET' request
 			return decodeURIComponent(pair[1]);
 		}
 	}
-	return null;
+	return def || null;
 }
 
 function load_script(src, callback) { /// Load script
@@ -116,20 +117,22 @@ function load_script(src, callback) { /// Load script
 }
 
 function init() { // We are ready now
-	var url = get_html_var("baseUrl");
-	if (!url) url = get_html_var("hostUrl");
+	var branch = get_html_var("b","master");
+	var url = get_html_var("baseUrl",(branch=="develop"?"https://dev-api.wialon.com":"https://hst-api.wialon.com"));
+	if (!url) url = get_html_var("hostUrl","https://hosting.wialon.com");
 	if (!url) return;
 	url += "/wsdk/script/wialon.js" ;
 	load_script(url, init_sdk);
 }
 
 function init_sdk() { /// Init SDK
-	var url = get_html_var("baseUrl") || get_html_var("hostUrl");
+	var branch = get_html_var("b","master");
+	var url = get_html_var("baseUrl",(branch=="develop"?"https://dev-api.wialon.com":"https://hst-api.wialon.com")) || get_html_var("hostUrl","https://hosting.wialon.com");
 	var user = get_html_var("user") || "";
 	var sid = get_html_var("sid");
 	var authHash = get_html_var("authHash");
 
-	wialon.core.Session.getInstance().initSession(url);
+	wialon.core.Session.getInstance().initSession(url, 'gapp_trackplayer');
 	if (authHash) {
 		wialon.core.Session.getInstance().loginAuthHash(authHash, login);
 	} else if (sid) {
@@ -139,24 +142,24 @@ function init_sdk() { /// Init SDK
 
 function login(code) { /// Login result
 	if (code) { alert($.localise.tr("Login error, restart the application")); return; }
-	
-	var sess = wialon.core.Session.getInstance(); 
-	
+
+	var sess = wialon.core.Session.getInstance();
+
 	tz = wialon.util.DateTime.getTimezoneOffset();
 	dst = wialon.util.DateTime.getDSTOffset(sess.getServerTime());
-	
+
 	// preload user dateTime format
 	getUserDateTimeFormat(function(){
 		changeTime(0);
 		setTimeRange();
 	});
-	
-	var flags = wialon.item.Item.dataFlag.base | wialon.item.Unit.dataFlag.sensors | wialon.item.Item.dataFlag.customProps;
-	
+
+	var flags = wialon.item.Item.dataFlag.base | wialon.item.Item.dataFlag.image | wialon.item.Unit.dataFlag.sensors | wialon.item.Item.dataFlag.customProps;
+
 	sess.loadLibrary("itemIcon");
 	sess.loadLibrary("unitTripDetector");
 	sess.loadLibrary("unitSensors");
-	
+
 	sess.updateDataFlags(
 		[{type: "type", data: "avl_unit", flags: flags, mode: 0}],
 		function (code) { if (code) return;
@@ -166,31 +169,21 @@ function login(code) { /// Login result
 			un = wialon.util.Helper.sortItems(un);
 			for(var i=0; i<un.length; i++)
 				$("#units").append("<option value='"+ un[i].getId() +"'>"+ un[i].getName()+ "</option>");
-			
+
 			$("#add_btn").prop("disabled", false);
-			
+
 		}
 	);
 
-	initMap();
+	initMap(sess);
 }
 
 /* initialize map */
-function initMap() {
+function initMap(session) {
+	var renderer = session.getRenderer();
 	L.TileLayer.WebGisRender = L.TileLayer.WebGis.extend({
-		initialize: function (url, options) {
-			L.TileLayer.prototype.initialize.call(this, url, options);
-			options.sessionId = options.sessionId || 0;
-			options.nocache = options.nocache || false;
-			this._url = url + '/avl_render/{x}_{y}_{z}/' + options.sessionId + '.png';
-		},
-
-		setUrl: function (url, noRedraw) {
-			this._url = url + '/avl_render/{x}_{y}_{z}/' + this.options.sessionId + '.png';
-			if (!noRedraw) {
-				this.redraw();
-			}
-			return this;
+		getTileUrl: function(coords) {
+			return renderer.getTileUrl(coords.x, coords.y, coords.z);
 		}
 	});
 
@@ -220,35 +213,44 @@ function initMap() {
 	var gis_url = sess.getBaseGisUrl();
 	var user_id = sess.getCurrUser().getId();
 
-	var gurtam = L.tileLayer.webGis(gis_url, {attribution: "Gurtam Maps", minZoom: 4, userId: user_id});
+	var gurtam = L.tileLayer.webGis(gis_url, {
+		attribution: APP_CONFIG.alias_webgis || "Gurtam Maps", minZoom: 4, userId: user_id, sessionId: sess.getId()
+	});
 
-	var render = new L.TileLayer.WebGisRender(sess.getBaseUrl() + "/adfurl" + new Date().getTime(), {
+	renderLayer = new L.TileLayer.WebGisRender('', {
 		sessionId: sess.getId(),
 		minZoom: 4
 	});
 
-	var osm = L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+	var osm = L.tileLayer('//{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 		attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors',
 		minZoom: 4
 	});
+	var user = sess.getCurrUser();
+	var umsp = user.getCustomProperty('umsp');
 
-	map = L.map("map", {
-		center: [53.505,28.49],
-		keyboard: false,
-		zoom: 6,
-		layers: [render, gurtam]
-	});
-	render.bringToFront();
-	render.setZIndex(100);
-	
-	var layers = {
-		"Gurtam Maps": gurtam,
-		"OpenStreetMap": osm
+	// get properties umsp from user settings
+	var center = umsp ? umsp.split(',') : [];
+	center = {
+		lng: parseFloat(center[1]) || 53.505,
+		lat: parseFloat(center[0]) ||  28.49,
+		zoom: parseFloat(center[2]) || 13
 	};
 
+	map = L.map("map", {
+		center: [ center.lng, center.lat ],
+		keyboard: false,
+		zoom: center.zoom,
+		layers: [gurtam]
+	});
+
+	var layers = {};
+	layers[APP_CONFIG.alias_webgis || "Gurtam Maps"] = gurtam;
+	layers["OpenStreetMap"] = osm;
+
 	L.control.layers(layers).addTo(map);
-	
-	
+
+
 	// common icons
 	stopIcon = L.icon({
 		iconUrl: "img/stop.png",
@@ -291,26 +293,26 @@ function initMap() {
 * * * * * * * * * * * */
 
 function freeze() {
-	clearTimeout(timeoutId);
+	clearTimeout(idTimeout);
 }
 
 function changeTime(value) {
 	var server_time = wialon.core.Session.getInstance().getServerTime();
-	
+
 	var tt = new Date(get_user_time(server_time, tz, dst)*1000);
 	var tnow = new Date(tt);
 	tt.setHours(0);
 	tt.setMinutes(0);
 	tt.setSeconds(0);
 	tt.setMilliseconds(0);
-	
+
 	tnow.setHours(23);
 	tnow.setMinutes(59);
 	tnow.setSeconds(59);
 	tnow.setMilliseconds(999);
 
 	value = parseInt(value, 10);
-	
+
 	$("#t_begin").datetimepicker("option", "defaultDate", tt);
 	$("#t_end").datetimepicker("option", "defaultDate", tnow);
 
@@ -327,7 +329,7 @@ function changeTime(value) {
 		case 2: /* week */
 			var day = tt.getDay();
 			tt.setDate(tt.getDate() - day + (day === 0 ? -6:1));
-			
+
 			$("#t_begin").datetimepicker( "setDate", new Date(tt) );
 			$("#t_end").datetimepicker( "setDate", tnow);
 		break;
@@ -347,9 +349,9 @@ function changeTime(value) {
 			$("#t_end").datetimepicker( "setDate", tnow);
 		break;
 	}
-	
+
 	$(window).resize();
-	
+
 	if(value<6){
 		$("#timepickers").hide();
 		setTimeRange();
@@ -362,45 +364,47 @@ function setTimeRange() {
 	$("#set_interval_btn").prop("disabled",true);
 	var t_from = Math.floor($("#t_begin").datetimepicker("getDate")/1000);
 	var t_to = Math.floor($("#t_end").datetimepicker("getDate")/1000);
-	
+
 	t_from = get_abs_time(t_from, tz, dst);
 	t_to = get_abs_time(t_to, tz, dst);
-	
+
 	if(t_to == to && t_from == from){
 	} else if(t_to<=t_from){
 		alert($.localise.tr("Wrong datetime format")); return;
 	} else {
 		from = t_from;
 		to = t_to;
-		
+
 		var val = $("#slider").slider("option", "value");
 		val = from;
-		
+
 		$("#slider").slider("option",{
 			min: from,
 			max: to,
-			value: val       
+			value: val
 		});
 		$("#info_block").slider("option",{
 			min: from,
 			max: to,
-			value: val       
+			value: val
 		});
 		$("#range").slider("option",{
 			values: [from,to],
 			min: from,
 			max: to
 		});
-		
+
 		$(".photo").remove();
 		$("#photos").css({width:"100%",left:"0%"});
-		
+
 		drawTimeline();
-		
+
+		wialon.core.Remote.getInstance().startBatch('Update layers');
 		for(var i in DataStorage){
 			clearTimeout(DataStorage[i].getMessagesId);
 			updateDataStorage(i);
 		}
+		wialon.core.Remote.getInstance().finishBatch(function () {}, 'Update layers');
 	}
 }
 
@@ -415,7 +419,7 @@ function changeSliderRange(evt, ui, keepRatio, changeValue) {
 		if(ui.handle.nextSibling == null) which = 0;
 		else which = 1;
 	}
-	
+
 /*== design block */
 	var h = $("#range").children(".ui-slider-handle");
 	if( ui.values[0]==from ){ h[0].style.opacity = 0.1; h[0].style.width = "2px"; }
@@ -423,33 +427,33 @@ function changeSliderRange(evt, ui, keepRatio, changeValue) {
 	if( ui.values[1]==to ){ h[1].style.opacity = 0.1; h[1].style.width = "2px"; }
 	else { h[1].style.opacity = 1; h[1].style.width = "1px"; }
 /* design block ==*/
-	
+
 	var val = $( "#slider").slider("option", "value");
-	
+
 	if(keepRatio){
 		val =  ui.values[0] + (ui.values[1]-ui.values[0])*(val-o[0])/(o[1]-o[0]);
 	} else if( changeValue ){
 		if(val < ui.values[ 0 ]) val = ui.values[ 0 ];
 		if(val > ui.values[ 1 ]) val = ui.values[ 1 ];
 	}
-	
+
 	var p = (to-from)/(ui.values[1]-ui.values[0])*100;
 	$("#photos").width( p+"%" ).css("left", "-"+p*(ui.values[0]-from)/(to-from)+"%" );
-	
+
 	if(plot && !keepRatio){
 		var axes = plot.getAxes();
 		var scale = ((axes.xaxis.options.max-axes.xaxis.options.min)/((ui.values[1]-ui.values[0])*1000));
 		p = plot.getXAxes()[0].p2c(which!==null? ui.values[which]*1000 : (from+(from-to)/2)*1000);
 		plot.zoom({amount:scale, center:{left:p, top:0}});
 	}
-	
+
 	$("#slider").slider("option", {"value":val});
 	$("#info_block").slider("option", {"min":ui.values[0], "max":ui.values[1]});
 }
 
 function addDataStorage() {
 	pause();
-	
+
 	var val = $("#units").val();
 	if( !val ){ alert($.localise.tr("Select unit")); return;}
 	if( DataStorage[val] ){
@@ -458,18 +462,18 @@ function addDataStorage() {
 	$("#add_btn").prop("disabled", true);
 
 	$("#units [value="+val+"]").prop("disabled",true);
-	
+
 	var sess = wialon.core.Session.getInstance();
 	var unit = sess.getItem( val );
 	var color = $("#color .template.active").data("bckgrnd");
-	
+
 	var render = sess.getRenderer();
 	var obj = layer_temp; // get template and set values
 	obj.layerName = unit.getName();
 	obj.itemId = unit.getId();
 	obj.timeFrom = from;
 	obj.timeTo = to;
-	
+
 	obj.trackColor = "c0"+ color;
 	obj.pointColor = "c0"+ color;
 
@@ -481,7 +485,7 @@ function addDataStorage() {
 			alert($.localise.tr(code==1001?"No messages for the selected interval":"Unable to build a track"));
 			$("#units [value="+val+"]").prop("disabled",false);
 			$("#add_btn").prop("disabled", false);
-			return; 
+			return;
 		}
 
 		unit.getTrips(from, to, layer.getName(), qx.lang.Function.bind(function(id, code, trips){
@@ -505,7 +509,7 @@ function updateDataStorage(id) {
 		if(DataStorage[id].eventsMarkers[i])
 			eventsLayer.removeLayer(DataStorage[id].eventsMarkers[i]);
 	DataStorage[id].eventsMarkers = [];
-	
+
 	var sess = wialon.core.Session.getInstance();
 	var render = sess.getRenderer();
 	if(DataStorage[id].layer && render)
@@ -518,7 +522,7 @@ function updateDataStorage(id) {
 
 function updateMessageLayer(id, render) {
 	var unit = DataStorage[id].unit;
-	
+
 	var obj = layer_temp; // get template and set values
 	obj.layerName = unit.getName();
 	obj.itemId = unit.getId();
@@ -526,17 +530,22 @@ function updateMessageLayer(id, render) {
 	obj.timeTo = to;
 	obj.trackColor = DataStorage[id].color;
 	obj.pointColor = DataStorage[id].color;
-	
+
 	render.createMessagesLayer( obj, function(code, layer){
+		// wait for all layers
+		clearTimeout(layerUpdateTimeout);
+		layerUpdateTimeout = setTimeout(refreshMap, 200);
+
+
 		var checkbox = $("#unit_track_"+unit.getId()+" .check_wrapper input");
 		if(code){
 			if(code!=1001) alert($.localise.tr("Unable to build a track"));
 			DataStorage[id].layer = null;
 			$("#info_"+id).html(DataStorage[id].unit.getName());
 			checkbox.click().prop("disabled",true);
-			return; 
+			return;
 		}
-		initTrack(layer, obj.trackColor);
+		initTrack(layer, obj.trackColor, true);
 		if( checkbox.prop("disabled") )
 			checkbox.prop("disabled",false).click();
 		unit.getTrips(from, to, layer.getName(), function(code, trips){
@@ -550,42 +559,54 @@ function updateMessageLayer(id, render) {
 
 function deleteDataStorage(val) {
 	pause();
-	
+
 	var sess = wialon.core.Session.getInstance();
 	var rend = sess.getRenderer();
 	if( !rend ){ alert($.localise.tr("Session error, restart the application")); }
-	
+
 	if( DataStorage[val] ){
 		clearTimeout(DataStorage[val].getMessagesId);
-		
+
+		var skipRedraw = !DataStorage[val].enable;
+
 		if(DataStorage[val].layer)
 			rend.removeLayer(DataStorage[val].layer, function(){
-				refreshMap();
+				refreshMap(skipRedraw);
 				updateTimeline();
-				
+
 				var c = 0;
 				for(var i in DataStorage) c++;
 				if (c === 0) {
 					activateUI(false);
 				}
 			});
-		
+
 		markersLayer.removeLayer(DataStorage[val].marker);
 		markersLayer.removeLayer(DataStorage[val].stopMarker);
 		for(var i=0; i<DataStorage[val].eventsMarkers.length; i++)
 			if(DataStorage[val].eventsMarkers[i])
 				eventsLayer.removeLayer(DataStorage[val].eventsMarkers[i]);
-		
+
 		DataStorage[val] = null;
 		delete DataStorage[val];
-		
-		refreshMap();
-		
+
+
 		$("#photos .ph_"+val).remove();
 		$("#units [value="+val+"]").prop("disabled", false);
 		$("#add_btn").prop("disabled",
 			$("#units option:disabled").size() == $("#units option").size()
 		);
+
+		// update layer
+		var empty = true;
+		for (var i in DataStorage) {
+			empty = false;
+			refreshMap(skipRedraw);
+			break;
+		}
+		if (empty) {
+			map.removeLayer(renderLayer);
+		}
 	} else {
 		alert($.localise.tr("Nothing to delete, no tracks for the given unit"));
 	}
@@ -648,6 +669,24 @@ var getUserDateTimeFormat = (function(){
 					dateTimeToPrint: t[0] + ' ' + t[1]
 				};
 
+				// Renderer
+				var tz = -( new Date() ).getTimezoneOffset() * 60,
+					user = wialon.core.Session.getInstance().getCurrUser(),
+					renderLocale = {
+						formatDate: locale.fd,
+						flags: wialon.render.Renderer.OptionalFlag.skipBlankTiles
+					};
+				tz = parseInt(user.getCustomProperty('tz', tz));
+				switch (user.getMeasureUnits()) {
+					case 1:
+						renderLocale.flags |= wialon.render.Renderer.OptionalFlag.usMetrics; break;
+					case 2:
+						renderLocale.flags |= wialon.render.Renderer.OptionalFlag.imMetrics; break;
+					case 3:
+						renderLocale.flags |= wialon.render.Renderer.OptionalFlag.latMetrics; break;
+				}
+				wialon.core.Session.getInstance().getRenderer().setLocale(tz, LANG, renderLocale);
+
 				// Set settings for datepicker
 				var tr_month =[
 					$.localise.tr("January"),$.localise.tr("February"),$.localise.tr("March"),$.localise.tr("April"),
@@ -688,7 +727,7 @@ var getUserDateTimeFormat = (function(){
 						dayNames: tr_days,
 						dayNamesShort: tr_days_short,
 						dayNamesMin: tr_days_min,
-						isRTL: false,
+						isRTL: (LANG=='fa')?true:false,
 						showMonthAfterYear: false,
 						yearSuffix: ''};
 
@@ -699,6 +738,7 @@ var getUserDateTimeFormat = (function(){
 					showSecond: true,
 					dateFormat: getAdaptedDateFormat( locale.fd.split('_')[0] ),
 					timeFormat: format.time,
+					isRTL: (LANG=='fa')?true:false,
 					// maxDate: maxDate,
 					firstDay: format.firstDay,
 					showButtonPanel:false,
@@ -730,10 +770,10 @@ var getUserDateTimeFormat = (function(){
 					settings.dateFormat = getAdaptedDateFormat( locale.def.split('_')[0] );
 					settings.timeFormat = 'HH:mm:ss';
 				}
-				
+
 				$("#t_begin").datetimepicker(settings);
 				$("#t_end").datetimepicker(settings);
-				
+
 				$("#t_begin").change( function(){
 					var t_from = Math.floor($("#t_begin").datetimepicker("getDate")/1000);
 					t_from = get_abs_time(t_from, tz, dst);
@@ -773,7 +813,7 @@ function tickFormat(v, axis) {
 	var t = axis.tickSize[0] * timeUnitSize[axis.tickSize[1]];
 	var span = axis.max - axis.min;
 	var suffix = (opts.twelveHourClock) ? " %p" : "";
-	
+
 	var fmt = "";
 	if (t < timeUnitSize.minute)
 		fmt = wialonTimeFormat + suffix;
@@ -793,14 +833,14 @@ function tickFormat(v, axis) {
 	}
 	else
 		fmt = "%y";
-	
+
 	return $.plot.formatDate(d, fmt, opts.monthNames);
 }
 
 function drawTimeline() {
 	var count = getDataStorageCount();
 	var photo = needPhoto();
-	
+
 	if(count){
 		$("#graph").height(14+(photo?76:0)+count*18);
 		$("#info_block").show();
@@ -808,10 +848,10 @@ function drawTimeline() {
 		$("#graph").height(1);
 		$("#info_block").hide();
 	}
-	
+
 	var t_from = (from + timezone)*1000;
 	var t_to = (to + timezone)*1000;
-	
+
 	plot = $.plot("#graph", [], {
 		series: {shadowSize: 0},
 		xaxis: {
@@ -829,15 +869,15 @@ function drawTimeline() {
 		grid: {borderWidth:0, labelMargin:0, axisMargin:0, minBorderMargin:0, hoverable:true, clickable: true, autoHighlight:false, mouseActiveRadius:20},
 		legend: {show:false}
 	});
-	
+
 	var canvas = plot.getCanvas();
 	canvas.setAttribute("width", 10);
 	canvas.setAttribute("height", 10);
-	
+
 	$("#graph").bind("plothover", function (event, pos, item) {
 		showHoverInfo(item);
 	});
-	
+
 	$("#graph").bind("plotclick", function (event, pos, item) {
 		if (event.timeStamp-last_graph_click > 10) {
 			last_graph_click = event.timeStamp;
@@ -850,7 +890,7 @@ function drawTimeline() {
 			}
 		}
 	});
-	
+
 	$("#graph").bind("plotpan", function (event, plot, delta) {
 		pause();
 		var axes = plot.getAxes();
@@ -858,14 +898,14 @@ function drawTimeline() {
 		changeSliderRange(null, {values:[min, max]}, true, false);
 		$("#range").slider("option","values",[min,max]);
 	});
-	
+
 	$(window).resize();
 }
 
 function updateTimeline() {
 	var count = getDataStorageCount();
 	var photo = needPhoto();
-	
+
 	if(count){
 		$("#graph").height((photo?89:14)+count*18);
 		$("#info_block").show();
@@ -876,24 +916,24 @@ function updateTimeline() {
 		return;
 	}
 	plot.resize();
-	
+
 	var index = count;
-	var data = []; 
+	var data = [];
 	for(var id in DataStorage){
 		if(!DataStorage[id].enable) continue;
 		index--;
-		
+
 		var c = DataStorage[id].color;
 		var d = [];
 		var msg = [];
 		var i;
-		
+
 		var l = DataStorage[id].trips.length;
 		for(i=0; i< l; i++){
 			d.push( [DataStorage[id].trips[i].from.t*1000, 10+18*index, 8, 0, 0] );
 			d.push( [DataStorage[id].trips[i].to.t*1000, 0, 0, 0, 0] );
 		}
-		
+
 		l = DataStorage[id].events.length;
 		for(i=0; i< l; i++){
 			msg.push( [DataStorage[id].events[i].t*1000, 10+18*index] );
@@ -912,17 +952,17 @@ function updateTimeline() {
 				color:"#FFFFFF"
 			});
 	}
-	plot.getOptions().yaxes[0].max = 18*count+(photo?78:2);    
+	plot.getOptions().yaxes[0].max = 18*count+(photo?78:2);
 	plot.setData(data);
 	plot.setupGrid();
-	
+
 	$(window).resize();
 }
 
 function resizeTimeline() {
 	var count = getDataStorageCount();
 	var photo = needPhoto();
-	
+
 	if(count){
 		$("#graph").height((photo?89:14)+count*18);
 		$("#info_block").show();
@@ -933,7 +973,7 @@ function resizeTimeline() {
 		return;
 	}
 	plot.resize();
-	plot.getOptions().yaxes[0].max = 18*count+(photo?78:2);    
+	plot.getOptions().yaxes[0].max = 18*count+(photo?78:2);
 	plot.setupGrid();
 	$(window).resize();
 }
@@ -942,24 +982,24 @@ function showHoverInfo(item) {
 	if (item) {
 		if (previousPoint != item.dataIndex) {
 			previousPoint = item.dataIndex;
-			
+
 			if($("#graph_hover"))$("#graph_hover").remove();
 			var msg_text = messagesUtils.getMessageText(DataStorage[item.series.label].events[item.dataIndex]);
 			$('<div id="graph_hover"><div class="text">'+msg_text+'</div><div class="tick"></div></div>')
 				.css({ display: "none" })
 				.appendTo("body").fadeIn(100);
-			
+
 			$("#graph_hover").offset({top: item.pageY-18, left: item.pageX-310}).show();
 		}
 	} else {
 		$("#graph_hover").remove();
-		previousPoint = null;            
+		previousPoint = null;
 	}
 }
 
-function initTrack(layer, color) {
+function initTrack(layer, color, batch) {
 	if(!layer) return;
-	
+
 	var unitId = layer.getUnitId();
 	var sess = wialon.core.Session.getInstance();
 	var unit =sess.getItem( unitId );
@@ -967,9 +1007,9 @@ function initTrack(layer, color) {
 	var n = unit.getName();
 	var first = layer.getFirstPoint();
 	var last = layer.getLastPoint();
-	
+
 	if( DataStorage[unitId] ){ // update
-		
+
 		DataStorage[unitId].hover = false;
 		DataStorage[unitId].layer = layer;
 		DataStorage[unitId].first = first;
@@ -978,12 +1018,12 @@ function initTrack(layer, color) {
 		DataStorage[unitId].messages = [];
 		DataStorage[unitId].trips = [];
 		DataStorage[unitId].events = [];
-		
+
 		for(var i=0; i<DataStorage[unitId].eventsMarkers.length; i++)
 			if(DataStorage[unitId].eventsMarkers[i])
 				eventsLayer.removeMarker(DataStorage[unitId].eventsMarkers[i]);
 		DataStorage[unitId].eventsMarkers = [];
-		
+
 		$("#toggle_photo_"+unitId).hide();
 	} else { // create
 		var eventIcon = L.icon({
@@ -1000,13 +1040,13 @@ function initTrack(layer, color) {
 
 		var marker = L.marker(lonlat, {icon: markerIcon, unitId: unitId});
 		markersLayer.addLayer(marker);
-		
+
 		var stopMarker = L.marker(lonlat, {
 			icon: stopIcon,
 			parentMarker: marker
 		});
 		markersLayer.addLayer(stopMarker);
-		
+
 		var rotate = parseInt(unit.getCustomProperty("img_rot", "0"), 10) ? true: false;
 
 		DataStorage[unitId] = {
@@ -1033,7 +1073,7 @@ function initTrack(layer, color) {
 			"hover": false,
 			"version": 0
 		};
-		
+
 		$("<div id='unit_track_"+unitId+"' class='unit_track' data-unitid='"+unitId+"' style='border-left:5px solid #"+color.substr(2)+"'>"+
 			"<div class='check_wrapper' style='background:#"+color.substr(2)+"'>"+
 				"<input style='margin-top:12px;' type='checkbox' data-color='"+color.substr(2)+"' checked title='"+$.localise.tr("Hide/show track")+"'/>"+
@@ -1051,13 +1091,13 @@ function initTrack(layer, color) {
 					"<div id='commons_"+unitId+"_speed' class='unit_speed' style='color:#"+color.substr(2)+"'>"+
 						"<img class='icon' id='unit_speed_icon_"+unitId+"' alt='Speed' src='img/0.png'/>"+
 						"<span id='unit_speed_"+unitId+"' title='"+$.localise.tr("Speed")+"'>0</span>"+
-						"<span class='km'>"+$.localise.tr(unitMetrics ? "mph" : "kph")+"</span>"+
+						"<span class='km'>"+$.localise.tr((unitMetrics == 1 || unitMetrics == 2) ? "mph" : "kph")+"</span>"+
 					"</div>"+
 				"</div>"+
 			"</div>"+
 		"</div><pre/>").appendTo("#tracks_list");
-		
-		DataStorage[unitId].commons = { speed:{show:true, name:$.localise.tr("Speed"), value:0, metrics: $.localise.tr(unitMetrics ? "mph" : "kph")} };
+
+		DataStorage[unitId].commons = { speed:{show:true, name:$.localise.tr("Speed"), value:0, metrics: $.localise.tr((unitMetrics == 1 || unitMetrics == 2) ? "mph" : "kph")} };
 		var sens = unit.getSensors();
 		for(var j in sens) {
 			DataStorage[unitId].sensors[sens[j].id] = {
@@ -1067,25 +1107,41 @@ function initTrack(layer, color) {
 			};
 		}
 	}
-	
+
 	/* common part for add and update */
 	/* head info - unitName, mileage and first-last points */
 	var mileage = layer.getMileage();
 	if (typeof mileage != 'undefined') {
 		mileage /= 1000;
-		unitMetrics && (mileage *= 0.621);
+		(unitMetrics == 1 || unitMetrics == 2) && (mileage *= 0.621);
 	} else mileage = "0";
-	
+
 	$("#info_"+unitId).html(
-		n+" /"+wialon.util.String.sprintf("%.2f&nbsp;%s ",mileage, $.localise.tr(unitMetrics ? "miles" : "km"))+"/<br/>"+
-		"<a href='#' class='first' onclick='slideToTime("+first.time+");return false;' title='"+$.localise.tr("Go to the first message")+"'><img src='img/first.png' alt='Beginning'/></a>"+
+		n+" /"+wialon.util.String.sprintf("%.2f&nbsp;%s ",mileage, $.localise.tr((unitMetrics == 1 || unitMetrics == 2) ? "miles" : "km"))+"/<br/>"+
+		"<a href='#' class='first' title='"+$.localise.tr("Go to the first message")+"'><img src='img/first.png' alt='Beginning'/></a>"+
 		"<span>"+ wialon.util.DateTime.formatTime(first.time, 2, getUserDateTimeFormat().dateTimeToPrint) +" - "+ wialon.util.DateTime.formatTime(last.time, 0, getUserDateTimeFormat().dateTimeToPrint) +"</span>"+
-		"<a href='#' class='last' onclick='slideToTime("+last.time+");return false;' title='"+$.localise.tr("Go to the last message")+"'><img src='img/last.png' alt='End'/></a>"
+		"<a href='#' class='last' title='"+$.localise.tr("Go to the last message")+"'><img src='img/last.png' alt='End'/></a>"
 	);
-	
+	$("#info_"+unitId+" .first").click(function (e) {
+		e.preventDefault();
+		slideToTime(first.time);
+		return false;
+	});
+	$("#info_"+unitId+" .last").click(function (e) {
+		e.preventDefault();
+		slideToTime(last.time);
+		return false;
+	});
 	loadEvents(unitId);
-	
-	fitBoundsToMap();
+
+	fitBoundsToMap(batch);
+
+	if (!map.hasLayer(renderLayer)) {
+		renderLayer.addTo(map);
+		renderLayer.bringToFront();
+		renderLayer.setZIndex(100);
+	}
+
 }
 
 function unitHover(marker, show) {
@@ -1118,9 +1174,9 @@ function getUnitHoverContent(id, time, content) {
 			if(DataStorage[id].sensors[s].show)
 				content += "<div class='row'>"+DataStorage[id].sensors[s].name+"<span>"+DataStorage[id].sensors[s].value+"</span></div>";
 	}
-	
+
 	var datetime = wialon.util.DateTime.formatTime(time, 0, getUserDateTimeFormat().dateTime).split('_');
-	
+
 	content = "<div class='text'><div class='header'>"+
 		"<div class='row'>"+DataStorage[id].unit.getName()+"</div>"+
 		"<div class='row'><span style='margin:0px; margin-right:5px;'>"+datetime[0]+"</span>"+datetime[1]+"</div></div>"+
@@ -1140,7 +1196,7 @@ function loadEvents(unitId) {
 	busy=true;
 	var ml = wialon.core.Session.getInstance().getMessagesLoader();
 	ml.unload(function(){
-		ml.loadInterval(unitId, from, to, 1536, 65280, 1, 
+		ml.loadInterval(unitId, from, to, 1536, 65280, 1,
 			function(code, data){
 				if(code){
 					busy = false;
@@ -1148,9 +1204,9 @@ function loadEvents(unitId) {
 					return;
 				}
 				if(!DataStorage[unitId]) return;
-				
+
 				var count = data.count;
-				
+
 				if(count>1000){
 					alert(wialon.util.String.sprintf($.localise.tr("%d events have been found for %s. First 1000 of them will be shown.\nTo see other events, change time interval.") ,count, DataStorage[unitId].unit.getName()));
 					count=1000;
@@ -1203,7 +1259,7 @@ function enableTrackLayer(evt) {
 	var obj = evt.target;
 	var p = $(obj).parent();
 	var enable = obj.checked;
-	
+
 	p.css("background",(enable?"#"+$(obj).data("color"):""));
 	p = p.parent();
 	var unitId = p.data("unitid");
@@ -1214,7 +1270,7 @@ function enableTrackLayer(evt) {
 	p.find(".unit_photo_btn").css("display",(enable && DataStorage[unitId].photos?"block":"none"));
 	p.find(".wrapper").css("display",(enable?"block":"none"));
 	$("#photos .ph_"+unitId).css("display",(enable && DataStorage[unitId].showPhoto ?"block":"none"));
-	
+
 	if (DataStorage[unitId].layer) {
 		var sess = wialon.core.Session.getInstance();
 		var rend = sess.getRenderer();
@@ -1242,7 +1298,7 @@ function enableTrackLayer(evt) {
 		markersLayer.removeLayer(DataStorage[unitId].stopMarker);
 		markersLayer.removeLayer(DataStorage[unitId].marker);
 	}
-	
+
 	updateTimeline();
 }
 
@@ -1259,7 +1315,7 @@ function showUnitOnMap(evt) {
 	if(state == 'PLAY') // do not change map center in FOLLOW mode while PLAY
 		for(var i in DataStorage)
 			if( DataStorage[i].follow && DataStorage[i].enable ) return;
-		
+
 		var unitId = $(obj).parent().data("unitid");
 		if(DataStorage[unitId].enable)
 			map.panTo(DataStorage[unitId].marker.getLatLng());
@@ -1269,13 +1325,13 @@ function followUnit(evt) {
 	evt.preventDefault();
 	var unitId = $(this).parent().parent().data("unitid");
 	var follow = !DataStorage[unitId].follow;
-	
+
 	for(var i in DataStorage)
 		if(DataStorage[i].follow && unitId!=i){
 			DataStorage[i].follow = false;
 			$("#toggle_follow_"+i).children("img").attr("src","img/watch-on-map-dis.png");
 		}
-	
+
 	DataStorage[unitId].follow = follow;
 	$(this).children("img").attr("src",follow?"img/watch-on-map.png":"img/watch-on-map-dis.png");
 	if( state=="STOP" )
@@ -1287,10 +1343,10 @@ function photoUnit(evt) {
 	var unitId = $(this).parent().parent().data("unitid");
 	var show = !DataStorage[unitId].showPhoto;
 	DataStorage[unitId].showPhoto = show;
-	
+
 	$(this).children("img").attr("src", show?"img/img-tr.png":"img/img-tr-dis.png");
 	$("#photos .ph_"+unitId).css("display",(show?"block":"none"));
-	
+
 	$("#photos").css("display",(needPhoto()?"block":"none"));
 	resizeTimeline();
 }
@@ -1307,9 +1363,9 @@ function optionsUnit(evt) {
 		$dialog.data("unit", unitId);
 		/* clean old data */
 		$(".all_params", $dialog).html("");
-		
+
 		$("#rotate_icon").prop("checked", DataStorage[unitId].rotate);
-		
+
 		var i, show, count = 0;
 		/* Speed, position */
 		for(i in DataStorage[unitId].commons){
@@ -1318,7 +1374,7 @@ function optionsUnit(evt) {
 
 			$("<div class='row' id='list_commons_"+i+"' data-unit='"+unitId+"' data-commons='"+i+"' "+(show?"style='display:none;'":"")+">"+DataStorage[unitId].commons[i].name +"</div>")
 				.appendTo($commons);
-			
+
 			if (show) {
 				count--;
 				$("<div class='row shown' id='commons_"+i+"' data-unit='"+unitId+"' data-commons='"+i+"'>" + DataStorage[unitId].commons[i].name +"</div>")
@@ -1330,16 +1386,16 @@ function optionsUnit(evt) {
 		} else {
 			$commons.prev().removeClass("grey");
 		}
-		
+
 		count = 0;
 		/* Fill dialog with sensors */
 		for(i in DataStorage[unitId].sensors){
 			count++;
 			show = DataStorage[unitId].sensors[i].show;
-			
+
 			$("<div class='row' id='list_sensors_"+i+"' data-unit='"+unitId+"' data-sensors='"+i+"' "+(show?"style='display:none;'":"")+">"+DataStorage[unitId].sensors[i].name +"</div>")
 				.appendTo($sensors);
-			
+
 			if (show) {
 				count--;
 				$("<div class='row shown' id='sensors_"+i+"' data-unit='"+unitId+"' data-sensors='"+i+"'>" + DataStorage[unitId].sensors[i].name +"</div>")
@@ -1351,7 +1407,7 @@ function optionsUnit(evt) {
 		} else {
 			$sensors.prev().removeClass("grey");
 		}
-		
+
 		var off = $(this).offset();
 		$(".header", $dialog).css("border-left","5px solid #"+DataStorage[unitId].color.substr(2));
 		$(".label", $dialog).css("border-left","5px solid #"+DataStorage[unitId].color.substr(2));
@@ -1386,15 +1442,15 @@ function addWatch(type, evt) {
 	var i = obj.data(type);
 	obj.css("display","none");
 	DataStorage[unitId][type][i].show = true;
-	
+
 	$("<div class='row shown' id='"+type+"_"+i+"' data-unit='"+unitId+"' data-"+type+"='"+i+"'>" + DataStorage[unitId][type][i].name +"</div>")
 		.appendTo("#selected_options");
-	
+
 	if(needDisable(unitId, type))
 		$("#"+type).prev().addClass("grey");
 	else
 		$("#"+type).prev().removeClass("grey");
-	
+
 	if(type=="commons") // speed
 		$("#commons_"+unitId+"_"+i).show();
 	else // sensors
@@ -1408,12 +1464,12 @@ function removeWatch(type, evt) {
 	var i = obj.data(type);
 	$("#list_" + type + "_" + i).css("display", "block");
 	DataStorage[unitId][type][i].show = false;
-	
+
 	if (needDisable(unitId, type))
 		$("#"+type).prev().addClass("grey");
 	else
 		$("#"+type).prev().removeClass("grey");
-	
+
 	obj.remove();
 	if (type == "commons") // speed
 		$("#commons_"+unitId+"_"+i).hide();
@@ -1466,12 +1522,13 @@ function loadMessages(id, l) {
 		return;
 	} else if( DataStorage[id].layer && l < DataStorage[id].msgIntervals.length-1 ){ // there are nonloaded intervals
 		var to_msg = msgSize*(l+1)>DataStorage[id].layer.getMessagesCount() ? DataStorage[id].layer.getMessagesCount() : msgSize*(l+1);
-		
+
 		DataStorage[id].messages[l] = []; // indicate that LoadMessages already run
-		DataStorage[id].layer.getMessages(0, msgSize*l, to_msg , qx.lang.Function.bind(function(l, version, code, data){  
-			if(DataStorage[id] && DataStorage[id].version!=version)
+		DataStorage[id].layer.getMessages(0, msgSize*l, to_msg , qx.lang.Function.bind(function(l, version, code, data){
+			if(!DataStorage[id] || DataStorage[id].version != version) {
 				return;
-			
+			}
+
 			// First message speed
 			if (!l && DataStorage[id].first.time === data[0].t) {
 				DataStorage[id].first.speed = data[0].pos.s;
@@ -1484,7 +1541,7 @@ function loadMessages(id, l) {
 
 			if(code || !DataStorage[id] || !DataStorage[id].messages[l] || DataStorage[id].messages[l].length) return;
 			DataStorage[id].messages[l] = data; // save messages
-			
+
 			for(var i=0; i< data.length; i++){
 				if(data[i].p.image){
 					var image = document.createElement('img');
@@ -1492,7 +1549,7 @@ function loadMessages(id, l) {
 					image.src = DataStorage[id].layer.getMessageImageUrl(0, msgSize*l+i, true);
 					image.style.marginLeft = (data[i].t-from)/(to-from)*100+"%";
 					image.onload = qx.lang.Function.bind(imageLoaded, image, id, i);
-					
+
 					if(!DataStorage[id].photos){
 						DataStorage[id].photos = true;
 						$("#toggle_photo_"+id).css("display","block");
@@ -1534,30 +1591,26 @@ function activateUI(enable) {
 	$(window).resize();
 }
 
-function fitBoundsToMap() {
-	
+function fitBoundsToMap(skipRedraw) {
+
 	var llb = L.latLngBounds([]);
 	for(var i in DataStorage){
 		if(DataStorage[i].follow){ refreshMap(); return; }
 		if(!DataStorage[i].layer) continue;
-		var b = DataStorage[i].layer.getBounds(); 
+		var b = DataStorage[i].layer.getBounds();
 
 		llb.extend(L.latLng(b[0], b[1]));
 		llb.extend(L.latLng(b[2], b[3]));
 	}
-	
-	refreshMap();  
-	
+
+	refreshMap(skipRedraw);
+
 	map.fitBounds(llb);
 }
 
-function refreshMap() { // redraw render layer
-	if(map){
-		map.eachLayer(function (l) {
-			if (l instanceof L.TileLayer.WebGisRender) {
-				l.setUrl(wialon.core.Session.getInstance().getBaseUrl() + "/adfurl" + new Date().getTime());
-			}
-		});
+function refreshMap(skip) { // redraw render layer
+	if (map && map.hasLayer(renderLayer) && !skip) {
+		renderLayer.redraw();
 	}
 }
 
@@ -1598,12 +1651,12 @@ function stepTime(right) {
 
 function slideToTime(time, play) {
 	var range = $("#range").slider("option","values");
-	
+
 	if(time < range[0]){ time = range[0]; pause(); }
 	if(time > range[1]){ time = range[1]; pause(); }
-	
+
 	$("#slider").slider("option","value",time);
-	
+
 	if(play){
 		freeze();
 		// wait 3*speed after skip
@@ -1616,7 +1669,7 @@ function showTime(time) {
 	var str = (wialon.util.DateTime.formatTime(time, 0, getUserDateTimeFormat().dateTime)).split('_');
 	$("#t_curr .d").html(str[0]);
 	$("#t_curr .t").html(str[1]);
-	
+
 }
 
 function slide() {
@@ -1624,12 +1677,12 @@ function slide() {
 	var slide_start = new Date();
 	var time = $("#slider").slider("option","value");
 	var step = $("#step").slider("option","value");
-	
+
 	time_prev = time;
 	time += step;
-	
+
 	slideToTime(time);
-	
+
 	if( state=="PLAY" && (time+step <= range[1]) ){
 		var slide_end = new Date();
 		if(slide_end - slide_start < speed)
@@ -1653,7 +1706,7 @@ function rotateIcon(id, degree) {
 			}
 		}
 		if(degree !== null){
-			if (L.DomUtil.TRANSFORM) {
+			if (L.DomUtil.TRANSFORM && DataStorage[id].marker._icon) {
 				// use the CSS transform rule if available
 				DataStorage[id].marker._icon.style[L.DomUtil.TRANSFORM] += " rotate(" + degree + "deg)";
 			}
@@ -1664,8 +1717,9 @@ function rotateIcon(id, degree) {
 function moveCar(time) {
 	var LatLngList = [],
 		isAnyMove = false,
-		nextTripTime = null;
-	
+		nextTripTime = null,
+		mu;
+
 	for(var i in DataStorage){
 		if(!DataStorage[i].enable) continue;
 
@@ -1673,33 +1727,34 @@ function moveCar(time) {
 		if( pos.ok ){
 			var hoverContent = "";
 			DataStorage[i].lastPos = pos;
-			
+
 			showStopInfo( pos, i );
 			var latlng = L.latLng(pos.y, pos.x);
 
 			DataStorage[i].marker.setLatLng(latlng);
-			
+
 			/* rotate */
 			if(DataStorage[i].rotate)
 				rotateIcon(i, null);
-			
+
 			/* follow */
 			if(DataStorage[i].follow) {
 				LatLngList.push(latlng);
 			}
-			
+
 			/* speed */
 			var sp = pos.speed || 0;
-			DataStorage[i].unit.getMeasureUnits() && (sp *= 0.621);
-			
+			mu = DataStorage[i].unit.getMeasureUnits();
+			(mu == 1 || mu == 2) && (sp *= 0.621);
+
 			if(DataStorage[i].commons.speed.show)
 				hoverContent += "<div class='row'>"+$.localise.tr("Speed")+"<span>"+sp.toFixed(2)+" "+DataStorage[i].commons.speed.metrics+"</span></div>";
-			
+
 			DataStorage[i].commons.speed.value = Math.round(sp);
 			$("#unit_speed_"+i).html( DataStorage[i].commons.speed.value );
 			sp = sp - sp%10 + (sp>0?10:0);
 			$("#unit_speed_icon_"+i).attr("src","img/"+(sp<180?(sp<60?sp:sp-(sp-60)%20):180)+".png");
-			
+
 			/* sensors */
 			var u, sens, sens_val, value;
 			for(var s in DataStorage[i].sensors){
@@ -1707,13 +1762,13 @@ function moveCar(time) {
 				sens = u.getSensor(s);
 				sens_val = u.calculateSensorValue(sens, pos.message);
 				value;
-				
+
 				if (typeof sens_val == "string") {
 					value = sens_val;
 				} else {
 					value = sensorsUtils.get_formatted_value(sens, sens_val);
 				}
-				
+
 				DataStorage[i].sensors[s].value = (sens_val!=-348201.3876 && value!==undefined? value : "-");
 				if(DataStorage[i].sensors[s].show){
 					$("#sensors_"+i+"_"+s).children("span").html( DataStorage[i].sensors[s].value );
@@ -1727,7 +1782,7 @@ function moveCar(time) {
 					.setLatLng(latlng)
 					.setContent(content);
 			}
-			
+
 			if(pos.trip){
 				isAnyMove = isAnyMove || pos.trip.move;
 				if( pos.trip.tripIndex!==undefined && pos.trip.tripIndex+1<DataStorage[i].trips.length){
@@ -1747,7 +1802,7 @@ function moveCar(time) {
 		slideToTime(nextTripTime, true);
 		return;
 	}
-	
+
 	followUnits(LatLngList);
 }
 
@@ -1769,7 +1824,7 @@ function findPos(time, i) {
 	var obj = { "ok":true, "move":true, "time":time, "speed":0 };
 	var first = DataStorage[i].first;
 	var last = DataStorage[i].last;
-	
+
 	if (time === first.time) {
 		obj.speed = first.speed || 0;
 	}
@@ -1787,11 +1842,11 @@ function findPos(time, i) {
 		obj.y = last.lat;
 		obj.move = false;
 	} else {
-		
-		var msgInt; 
+
+		var msgInt;
 		// check previous
 		var lp = DataStorage[i].lastPos;
-		// if stil in same interval    
+		// if stil in same interval
 		if( lp && DataStorage[i].msgIntervals[lp.msgInt]<=time && DataStorage[i].msgIntervals[lp.msgInt+1]>time){
 			msgInt = lp.msgInt;
 		} else { // else - have to find interval
@@ -1809,9 +1864,9 @@ function findPos(time, i) {
 			obj.ok = false;
 			return obj;
 		}
-		
+
 		obj.msgInt = msgInt; // save interval index for next time
-		
+
 		var index; // index of message in message[] array
 		// check previous
 		if(lp && lp.ind>0 && lp.ind < DataStorage[i].messages[msgInt].length &&
@@ -1823,39 +1878,39 @@ function findPos(time, i) {
 			}
 
 		if(index == -1) { obj.ok = false; return obj; }
-			
+
 		if(!DataStorage[i].trips || ! DataStorage[i].trips.length) {
 			obj.ok = false;
 			return obj;
 		}
 		var trip = isMove( DataStorage[i].trips, 0, DataStorage[i].trips.length-1, time);
-		
+
 		// get "begin" and "end" of line where unit in cur time
 		var m1 = DataStorage[i].messages[msgInt][index], m2 = DataStorage[i].messages[msgInt][index+1];
-		
+
 		// save message index for next time
 		obj.ind = index;
 		obj.message = m1;
 		obj.trip = trip;
-		
-		var move = trip.move;  
+
+		var move = trip.move;
 		if(!move && trip.pos){ // not move (not in trip) and position was found in trip info
 			obj.x = trip.pos.to.p.x;
 			obj.y = trip.pos.to.p.y;
 			obj.move = false;
 		} else {  // msgInt - index of interval of messages where unit in time
-			
+
 			var t = index, tt = msgInt;
 			while( !m1.pos ){
 				if(t>=0) m1 = DataStorage[i].messages[tt][t--];
 				else if(tt>0) {
-					tt--; 
+					tt--;
 					if(DataStorage[i].messages[tt] && DataStorage[i].messages[tt].length)
 						t=DataStorage[i].messages[tt].length-1;
 					else break;
 				} else break;
 			}
-			
+
 			t = index+1, tt = msgInt;
 			while( !m2.pos ){
 				if(t<DataStorage[i].messages[tt].length) m2 = DataStorage[i].messages[tt][t++];
@@ -1866,15 +1921,15 @@ function findPos(time, i) {
 					else break;
 				} else break;
 			}
-			
+
 			if( !m1.pos || !m2.pos ){ // if position unknown - leave...
 				obj.ok = false;
 			} else if(move){ // if unit moves - calculate point on line
 				var ko = (time-m1.t)/(m2.t-m1.t);
 				obj.x = m1.pos.x + (m2.pos.x-m1.pos.x)*ko;
-				obj.y = m1.pos.y + (m2.pos.y-m1.pos.y)*ko;    
+				obj.y = m1.pos.y + (m2.pos.y-m1.pos.y)*ko;
 				obj.speed = m1.pos.s + (m2.pos.s-m1.pos.s)*ko;
-				
+
 				if(Math.abs(m2.pos.y-m1.pos.y)<0.00001 && Math.abs(m2.pos.x-m1.pos.x)<0.00001)
 					obj.course = m1.pos.c;
 				else{
@@ -1882,7 +1937,7 @@ function findPos(time, i) {
 					var p2 = getMeters(m2.pos.x, m2.pos.y);
 					var angle = Math.atan2(p2.x-p1.x, p2.y-p1.y);
 					var degrees = (angle*180/Math.PI);
-					
+
 					obj.course = degrees;
 				}
 			} else { // unit doesnt move
@@ -1920,9 +1975,9 @@ function needPhoto() {
 
 /* binary search */
 function findRightPlace(arr, imin, imax, time) {
-	if( imax-imin==1){ 
+	if( imax-imin==1){
 		if(arr[imin].t<time && arr[imax].t>=time) return imin;
-		else return -1;    
+		else return -1;
 	}
 	var imid = parseInt((imax+imin)/2, 10);
 	if(arr[imid].t>=time)
@@ -1999,6 +2054,10 @@ $(window).resize(function(){
 });
 
 function ltranslate(){
+	var title = decodeURIComponent(APP_CONFIG.alias || "Track Player");
+	$("#header .app_name").html(title);
+	document.title = title;
+
 	$("#tr_interval").html($.localise.tr("Interval"));
 	$("#tr_unit").html($.localise.tr("Unit"));
 	$("#tr_tracks").html($.localise.tr("Tracks"));
@@ -2094,14 +2153,15 @@ function ltranslate(){
 $(document).ready(function(){
 	$(window).resize();
 
-	LANG = get_html_var("lang");
-	if ((!LANG) || ($.inArray(LANG, ["en", "ru", "sk", "fi"]) == -1))
+	LANG = get_html_var("lang","en");
+	if (availableLanguages && ($.inArray(LANG, availableLanguages) == -1))
 		LANG = "en";
 
 	$.localise('lang/', {language: LANG});
 	ltranslate();
-
-	$('#help').append('<a target="_blank" href="/docs/' + (LANG === 'ru' ? 'ru' : 'en') + '/trackplayer.html"><img src="img/help.png"></a>');
+	if(documentationLink) {
+		$('#help').append('<a target="_blank" href="' + documentationLink + '"><img src="img/help.png"></a>');
+	}
 
 	$("#color .template").click( function(){
 		$("#color .template").removeClass("active").children("div").hide();
@@ -2302,7 +2362,7 @@ $(document).ready(function(){
 				case 40: fastSlow(0); evt.preventDefault(); break; // down
 			}
 		});
-	
+
 	$("#commons, #sensors").on("dblclick", ".row", function (evt) {
 		addWatch(this.hasAttribute('data-commons') ? "commons" : "sensors", evt);
 	});

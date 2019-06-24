@@ -1,4 +1,4 @@
-# Track Player, version 1.6: (May 07, 2015)
+# Track Player, version 1.6.2: (Jule 6, 2017)
 This is WEB application based on Apps from Gurtam (http://apps.wialon.com).
 
 ## Description
@@ -14,7 +14,7 @@ While a track is played, different kinds of data dynamically update on the scree
 
 ## Requirements
  * Browser: Google Chome 20+, Firefox 15+, Safari 5+, IE 9+, Opera 10+
- * Language: русский, English, Slovenčina, Finnish
+ * Language: русский, English, Slovenčina, Finnish, Estonian
  * Components: SDK
  * URL params: Active SID, Base URL, Host URL, Language, Current user
 
@@ -59,3 +59,9 @@ Working with applications in the GPS tracking system: http://docs.gurtam.com/en/
 - tons on code refactored
 - OpenLayers replaced with Leaflet
 - hotkeys control supported
+
+ * v1.6.1 (May 18, 2016)
+- Estonian and Spanish languages supported
+
+ * v1.6.2 (Jule 6, 2017)
+- fix js error on show/hide track

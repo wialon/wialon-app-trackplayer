@@ -5,7 +5,7 @@ a, img{ border:0; text-decoration:none; }
 input:focus, a:focus, div:focus { outline: 0; }
 label{cursor:pointer; vertical-align:top !important; display: inline-block;}
 body, dt, dd{
-	cursor:default; 
+	cursor:default;
 	-webkit-touch-callout: none;
 	-webkit-user-select: none;
 	-khtml-user-select: none;

@@ -1,66 +1,71 @@
 {
-	"name": "track_player",
-	"url_name": "trackplayer",
-	"title": "Track Player",
-	"description": "Allows to draw movements of units on the map and then play them.",
-	"author": {
-		"name": "",
-		"url": "http://gurtam.com"
-	},
-	"licenses": [
-		{
-			"type":" MIT",
-			"url": "https://github.com/wialon/wialon-app-trackplayer/blob/master/LICENSE-MIT"
-		}
-	],
-	"dependencies": {
-		"jquery": "1.8.2",
-		"jquery.ui": "1.10.3",
-		"flot": "0.7",
-		"openlayers": "2.13"
-	},
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/wialon/wialon-app-trackplayer"
-	},
-	"modules": [
-		"sdk"
-	],
-	"params": [
-		"Active SID",
-		"Base URL",
-		"Host URL",
-		"Language",
-		"Current user"
-	],
-	"language": [
-		"en",
-		"ru",
-		"sk",
-		"fi"
-	],
-	"links": {
-		"github": "https://github.com/wialon/wialon-app-trackplayer",
-		"youtube": "http://youtu.be/Vs08-pKw-fI"
-	},
-	"docs": {},
-	"build_date": "2015-09-07",
-	"release_date": "2013-03-08",
-	"version": "1.6",
-	"keywords": [
-		"wialon",
-		"wialon-apps",
-		"track player",
-		"trackplayer"
-	],
-	"browser": {
-		"ie": "9+",
-		"opera": "10+",
-		"safari": "5+",
-		"chrome": "20+",
-		"firefox": "15+"
-	},
-	"logo": "logo.png",
-	"images_path": "images",
-	"desc_path": "desc"
+    "name": "track_player",
+    "url_name": "trackplayer",
+    "title": "Track Player",
+    "description": "Allows to draw movements of units on the map and then play them.",
+    "author": {
+        "name": "",
+        "url": "http://gurtam.com"
+    },
+    "licenses": [
+        {
+            "type": " MIT",
+            "url": "https://github.com/wialon/wialon-app-trackplayer/blob/master/LICENSE-MIT"
+        }
+    ],
+    "dependencies": {
+        "jquery": "1.8.2",
+        "jquery.ui": "1.10.3",
+        "flot": "0.7",
+        "openlayers": "2.13"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/wialon/wialon-app-trackplayer"
+    },
+    "modules": [
+        "sdk"
+    ],
+    "params": [
+        "Active SID",
+        "Base URL",
+        "Host URL",
+        "Language",
+        "Current user"
+    ],
+    "language": [
+        "en",
+        "br",
+        "es",
+        "et",
+        "fa",
+        "fi",
+        "it",
+        "ru",
+        "sk"
+    ],
+    "links": {
+        "github": "https://github.com/wialon/wialon-app-trackplayer",
+        "youtube": "http://youtu.be/Vs08-pKw-fI"
+    },
+    "docs": [],
+    "build_date": "2019-06-24",
+    "release_date": "2013-03-08",
+    "version": "1.6.2",
+    "keywords": [
+        "wialon",
+        "wialon-apps",
+        "track player",
+        "trackplayer"
+    ],
+    "browser": {
+        "ie": "9+",
+        "opera": "10+",
+        "safari": "5+",
+        "chrome": "20+",
+        "firefox": "15+"
+    },
+    "logo": "logo.png",
+    "images_path": "images",
+    "desc_path": "desc"
 }
