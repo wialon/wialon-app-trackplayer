@@ -1,4 +1,4 @@
-TRANSLATIONS = {
+{
     "Track player": "Reittitoistin",
     "Monitoring info": "Seurantatiedot",
     "Interval": "Aikaväli",
@@ -152,4 +152,4 @@ TRANSLATIONS = {
     "Filling": "Tankkaus",
     "Maintenance": "Huolto",
     "Violation": "Rikkeet"
-};
+}

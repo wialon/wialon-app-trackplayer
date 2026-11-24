@@ -67,7 +67,7 @@ Sensors.prototype.is_on_off_sensor = function(measurement) {
 Sensors.prototype.get_formatted_value = function(sensor, value) {
 	var real_measure, sens_meas;
 	real_measure = this.get_real_measurement(sensor.t);
-	
+
 	if (this.is_on_off_sensor(real_measure)) {
 		var on_val = this.translation.on;
 		var off_val = this.translation.off;

@@ -1,4 +1,5 @@
 {
+    "deprecated": true,
     "name": "track_player",
     "url_name": "trackplayer",
     "title": "Track Player",
@@ -9,7 +10,7 @@
     },
     "licenses": [
         {
-            "type": " MIT",
+            "type": "MIT",
             "url": "https://github.com/wialon/wialon-app-trackplayer/blob/master/LICENSE-MIT"
         }
     ],
@@ -40,18 +41,22 @@
         "et",
         "fa",
         "fi",
+        "fr",
+        "hr",
         "it",
+        "pl",
         "ru",
-        "sk"
+        "sk",
+        "uk"
     ],
     "links": {
         "github": "https://github.com/wialon/wialon-app-trackplayer",
         "youtube": "http://youtu.be/Vs08-pKw-fI"
     },
     "docs": [],
-    "build_date": "2019-06-24",
+    "build_date": "2026-11-20",
     "release_date": "2013-03-08",
-    "version": "1.6.2",
+    "version": "1.6.4",
     "keywords": [
         "wialon",
         "wialon-apps",
@@ -66,6 +71,5 @@
         "firefox": "15+"
     },
     "logo": "logo.png",
-    "images_path": "images",
     "desc_path": "desc"
 }

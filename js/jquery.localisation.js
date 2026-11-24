@@ -8,43 +8,45 @@
 (function($) { // Hide scope, no $ conflict
 
 /* Load applicable localisation package(s) for one or more jQuery packages.
-   Assumes that the localisations are named <base>-<lang>.js
-   and loads them in order from least to most specific.
-   For example, $.localise('mypackage');
-   with the browser set to 'en-US' would attempt to load
-   mypackage-en.js and mypackage-en-US.js.
-   Also accepts an array of package names to process.
-   Optionally specify the desired language, whether or not to include the base file,
-   paths to the files, the timeout period, whether retrieval is asynchronous,
-   and/or a callback upon completion, e.g.
-   $.localise(['mypackage1', 'yourpackage'],
-      {language: 'en-AU', loadBase: true, path: ['', 'i18n/'],
-      timeout: 300, async: true, complete: function(pkg) {
-         ...
-      }});
-   @param  packages  (string or string[]) names of package(s) to load
-   @param  settings  omit for the current browser language or
-                     (string) code for the language to load (aa[-AA]) or
-                     (object} options for the call with
-                       language  (string) the code for the language
-                       loadBase  as below
-                       path      as below
-                       timeout   as below
-                       async     as below
-                       complete  as below
-   @param  loadBase  (boolean, optional) true to also load the base package or false (default) to not -
-                     omit this if settings is an object
-   @param  path      (string or string[2], optional) the paths to the JavaScript,
-                     either as both or [base, localisations] -
-                     omit this if settings is an object
-   @param  timeout   (number, optional) the time period in milliseconds (default 500) -
-                     omit this if settings is an object
-   @param  async     (boolean, optional) true to load asynchronously or false (default) to load synchronously -
-                     omit this if settings is an object
-   @param  complete  (function, optional) callback on completion of loading,
-                     function receives package name as its parameter, 'this' is window -
-                     omit this if settings is an object */
+	Assumes that the localisations are named <base>-<lang>.js
+	and loads them in order from least to most specific.
+	For example, $.localise('mypackage');
+	with the browser set to 'en-US' would attempt to load
+	mypackage-en.js and mypackage-en-US.js.
+	Also accepts an array of package names to process.
+	Optionally specify the desired language, whether or not to include the base file,
+	paths to the files, the timeout period, whether retrieval is asynchronous,
+	and/or a callback upon completion, e.g.
+	$.localise(['mypackage1', 'yourpackage'],
+		{language: 'en-AU', loadBase: true, path: ['', 'i18n/'],
+		timeout: 300, async: true, complete: function(pkg) {
+			...
+		}});
+	@param  packages  (string or string[]) names of package(s) to load
+	@param  settings  omit for the current browser language or
+						(string) code for the language to load (aa[-AA]) or
+						(object} options for the call with
+						language  (string) the code for the language
+						loadBase  as below
+						path      as below
+						timeout   as below
+						async     as below
+						complete  as below
+	@param  loadBase  (boolean, optional) true to also load the base package or false (default) to not -
+						omit this if settings is an object
+	@param  path      (string or string[2], optional) the paths to the JavaScript,
+						either as both or [base, localisations] -
+						omit this if settings is an object
+	@param  timeout   (number, optional) the time period in milliseconds (default 500) -
+						omit this if settings is an object
+	@param  async     (boolean, optional) true to load asynchronously or false (default) to load synchronously -
+						omit this if settings is an object
+	@param  complete  (function, optional) callback on completion of loading,
+						function receives package name as its parameter, 'this' is window -
+						omit this if settings is an object */
 $.localise = function(packages, settings, loadBase, path, timeout, async, complete) {
+	window.TRANSLATIONS = window.TRANSLATIONS || {};
+
 	if (typeof settings != 'object' && typeof settings != 'string') {
 		complete = async;
 		async = timeout;
@@ -81,30 +83,44 @@ $.localise = function(packages, settings, loadBase, path, timeout, async, comple
 		timeout: timeout, async: async, complete: complete});
 	var paths = (!settings.path ? ['', ''] :
 		($.isArray(settings.path) ? settings.path : [settings.path, settings.path]));
-	var opts = {async: settings.async, dataType: 'script', timeout: settings.timeout};
+	var opts = {async: settings.async, dataType: 'json', timeout: settings.timeout};
+	
 	var localisePkg = function(pkg, lang) {
 		var files = [];
+
 		if (settings.loadBase) {
-			files.push(paths[0] + pkg + '.js');
+			files.push(paths[0] + pkg + '.json');
 		}
+
 		if (lang.length >= 2) {
-			files.push(paths[1] + pkg + lang.substring(0, 2) + '.js');
+			files.push(paths[1] + pkg + lang.substring(0, 2) + '.json');
 		}
+
 		if (lang.length >= 5) {
-			files.push(paths[1] + pkg + lang.substring(0, 5) + '.js');
+			files.push(paths[1] + pkg + lang.substring(0, 5) + '.json');
 		}
+
 		var loadFile = function() {
-			$.ajax($.extend(opts, {url: files.shift(), complete: function() {
-				if (files.length == 0) {
-					if ($.isFunction(settings.complete)) {
-						settings.complete.apply(window, [pkg]);
+			$.ajax($.extend(opts, {
+				url: files.shift(), 
+				complete: function() {
+					if (files.length == 0) {
+						if ($.isFunction(settings.complete)) {
+							settings.complete.apply(window, [pkg]);
+						}
+					}
+					else {
+						loadFile();
+					}
+				},
+				success: function(data) {
+					if (data) {
+						$.extend(TRANSLATIONS, data);
 					}
 				}
-				else {
-					loadFile();
-				}
-			}}));
+			}));
 		};
+
 		loadFile();
 	};
 	var lang = normaliseLang(settings.language || $.localise.defaultLanguage);
@@ -117,7 +133,7 @@ $.localise = function(packages, settings, loadBase, path, timeout, async, comple
 // Localise it!
 $.localise.tr = function (id) {
 	var result = id;
-	if (TRANSLATIONS !== undefined && typeof TRANSLATIONS === "object" && TRANSLATIONS[id]) {
+	if (typeof TRANSLATIONS !== "undefined" && typeof TRANSLATIONS === "object" && TRANSLATIONS[id]) {
 		result = TRANSLATIONS[id];
 	}
 	return result;
@@ -138,3 +154,4 @@ function normaliseLang(lang) {
 }
 
 })(jQuery);
+	

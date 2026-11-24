@@ -54,11 +54,11 @@ var DataStorage = {};
 var messagesUtils;
 var sensorsUtils;
 
-var speed = 100;                // !!!! animation time miliseconds
-var msgSize = 500;              // !!!! message load at once
-var messagesLoadSpeed = 5000;   // !!!! load ?msgSize+1? every ?messagesLoadSpeed? miliseconds
-var minRange = 600;             // !!!! min zoom range in sec
-var timezone = 0;               // !!!! timezone offset in seconds
+var speed = 100;                // animation step, milliseconds
+var msgSize = 500;              // number of messages loaded at once
+var messagesLoadSpeed = 5000;   // delay between loading portions of messages, milliseconds
+var minRange = 600;             // min zoom range, seconds
+var timezone = 0;               // timezone offset, seconds
 var skipBeetweenTrips = false;
 var idTimeout = 0;
 
@@ -85,7 +85,7 @@ function ie() { /// IE check
 	return (navigator.appVersion.indexOf("MSIE 6") != -1 || navigator.appVersion.indexOf("MSIE 7") != -1 || navigator.appVersion.indexOf("MSIE 8") != -1);
 }
 
-function get_html_var(name, def) { /// Fetch varable from 'GET' request
+function get_html_var(name, def) { /// Fetch variable from 'GET' request
 	if (!name) {
 		return null;
 	}
@@ -117,8 +117,7 @@ function load_script(src, callback) { /// Load script
 }
 
 function init() { // We are ready now
-	var branch = get_html_var("b","master");
-	var url = get_html_var("baseUrl",(branch=="develop"?"https://dev-api.wialon.com":"https://hst-api.wialon.com"));
+	var url = get_html_var("baseUrl","https://hst-api.wialon.com");
 	if (!url) url = get_html_var("hostUrl","https://hosting.wialon.com");
 	if (!url) return;
 	url += "/wsdk/script/wialon.js" ;
@@ -126,8 +125,7 @@ function init() { // We are ready now
 }
 
 function init_sdk() { /// Init SDK
-	var branch = get_html_var("b","master");
-	var url = get_html_var("baseUrl",(branch=="develop"?"https://dev-api.wialon.com":"https://hst-api.wialon.com")) || get_html_var("hostUrl","https://hosting.wialon.com");
+	var url = get_html_var("baseUrl","https://hst-api.wialon.com") || get_html_var("hostUrl","https://hosting.wialon.com");
 	var user = get_html_var("user") || "";
 	var sid = get_html_var("sid");
 	var authHash = get_html_var("authHash");
@@ -180,6 +178,7 @@ function login(code) { /// Login result
 
 /* initialize map */
 function initMap(session) {
+	var hiddenOSM = true;
 	var renderer = session.getRenderer();
 	L.TileLayer.WebGisRender = L.TileLayer.WebGis.extend({
 		getTileUrl: function(coords) {
@@ -244,12 +243,12 @@ function initMap(session) {
 		layers: [gurtam]
 	});
 
-	var layers = {};
-	layers[APP_CONFIG.alias_webgis || "Gurtam Maps"] = gurtam;
-	layers["OpenStreetMap"] = osm;
-
-	L.control.layers(layers).addTo(map);
-
+	if (!hiddenOSM) {
+		var layers = {};
+		layers[APP_CONFIG.alias_webgis || "Gurtam Maps"] = gurtam;
+		layers["OpenStreetMap"] = osm;
+		L.control.layers(layers).addTo(map);
+	}
 
 	// common icons
 	stopIcon = L.icon({
@@ -536,7 +535,6 @@ function updateMessageLayer(id, render) {
 		clearTimeout(layerUpdateTimeout);
 		layerUpdateTimeout = setTimeout(refreshMap, 200);
 
-
 		var checkbox = $("#unit_track_"+unit.getId()+" .check_wrapper input");
 		if(code){
 			if(code!=1001) alert($.localise.tr("Unable to build a track"));
@@ -589,7 +587,6 @@ function deleteDataStorage(val) {
 
 		DataStorage[val] = null;
 		delete DataStorage[val];
-
 
 		$("#photos .ph_"+val).remove();
 		$("#units [value="+val+"]").prop("disabled", false);
@@ -644,8 +641,8 @@ var getUserDateTimeFormat = (function(){
 
 	/**
 	 * getUserDateTimeFormat for current user
-	 * @param  {boolean} timeOnly get timeOnly format (without date)
-	 * @return {string}          format to use in wialon.util.DateTime.formatDate or wialon.util.DateTime.formatDate
+	 * @param  {function} callback called once, when the user locale is loaded and the datepickers are set up
+	 * @return {object|boolean}    date/time formats to use in wialon.util.DateTime.formatTime (false until loaded)
 	 */
 	var getUserDateTimeFormat = function getUserDateTimeFormat(callback){
 		if (!format) {
@@ -739,7 +736,6 @@ var getUserDateTimeFormat = (function(){
 					dateFormat: getAdaptedDateFormat( locale.fd.split('_')[0] ),
 					timeFormat: format.time,
 					isRTL: (LANG=='fa')?true:false,
-					// maxDate: maxDate,
 					firstDay: format.firstDay,
 					showButtonPanel:false,
 					prevText: $.localise.tr("Prev"),
@@ -1316,9 +1312,9 @@ function showUnitOnMap(evt) {
 		for(var i in DataStorage)
 			if( DataStorage[i].follow && DataStorage[i].enable ) return;
 
-		var unitId = $(obj).parent().data("unitid");
-		if(DataStorage[unitId].enable)
-			map.panTo(DataStorage[unitId].marker.getLatLng());
+	var unitId = $(obj).parent().data("unitid");
+	if(DataStorage[unitId].enable)
+		map.panTo(DataStorage[unitId].marker.getLatLng());
 }
 
 function followUnit(evt) {
@@ -1358,8 +1354,6 @@ function optionsUnit(evt) {
 		$sensors = $("#sensors"),
 		unitId = $(this).parent().parent().data("unitid");
 	if( $dialog.css("display") == "none" || $dialog.data("unit")!=unitId ){
-
-
 		$dialog.data("unit", unitId);
 		/* clean old data */
 		$(".all_params", $dialog).html("");
@@ -1520,7 +1514,7 @@ function loadMessages(id, l) {
 	// check if already loaded
 	if( DataStorage[id] && DataStorage[id].messages[l] && DataStorage[id].messages[l].length !==0){
 		return;
-	} else if( DataStorage[id].layer && l < DataStorage[id].msgIntervals.length-1 ){ // there are nonloaded intervals
+	} else if( DataStorage[id].layer && l < DataStorage[id].msgIntervals.length-1 ){ // there are intervals not loaded yet
 		var to_msg = msgSize*(l+1)>DataStorage[id].layer.getMessagesCount() ? DataStorage[id].layer.getMessagesCount() : msgSize*(l+1);
 
 		DataStorage[id].messages[l] = []; // indicate that LoadMessages already run
@@ -1819,7 +1813,7 @@ function followUnits(LatLngList) {
 	}
 }
 
-/* DO NOT TOUGHT IF DONT KNOW WHAT YOU ARE DOING */
+/* find unit position for the given time (interpolated between messages); change with care */
 function findPos(time, i) {
 	var obj = { "ok":true, "move":true, "time":time, "speed":0 };
 	var first = DataStorage[i].first;
@@ -1846,7 +1840,7 @@ function findPos(time, i) {
 		var msgInt;
 		// check previous
 		var lp = DataStorage[i].lastPos;
-		// if stil in same interval
+		// if still in same interval
 		if( lp && DataStorage[i].msgIntervals[lp.msgInt]<=time && DataStorage[i].msgIntervals[lp.msgInt+1]>time){
 			msgInt = lp.msgInt;
 		} else { // else - have to find interval
@@ -1940,7 +1934,7 @@ function findPos(time, i) {
 
 					obj.course = degrees;
 				}
-			} else { // unit doesnt move
+			} else { // unit doesn't move
 				obj.x = m1.pos.x;
 				obj.y = m1.pos.y;
 				obj.move = false;
@@ -1950,7 +1944,7 @@ function findPos(time, i) {
 	return obj;
 }
 
-function showStopInfo(pos, id) { // show stop marker when unit doesnt move
+function showStopInfo(pos, id) { // show stop marker when unit doesn't move
 	var latlng = L.latLng(pos.y, pos.x);
 	if (pos.move) {
 		markersLayer.removeLayer(DataStorage[id].stopMarker);
@@ -1991,7 +1985,7 @@ function isMove(arr, imin, imax, time) {
 	var obj = {"move":false};
 	if( imin>imax){
 		if(imax >-1)
-		obj.pos = arr[imax];
+			obj.pos = arr[imax];
 		obj.tripIndex = imax;
 		return obj;
 	}
@@ -2012,9 +2006,9 @@ function isMove(arr, imin, imax, time) {
 function findMsgInterval(arr, time) {
 	var res = -1;
 	for(var i=0; i<arr.length-1; i++)
-	if(arr[i]<=time && arr[i+1]>time){
-		res = i; break;
-	}
+		if(arr[i]<=time && arr[i+1]>time){
+			res = i; break;
+		}
 	return res;
 }
 
@@ -2405,13 +2399,10 @@ function get_local_timezone() {
 	var daylight_time_offset = ((june1 - june2) / (1000 * 60 * 60));
 	var dst;
 	if (std_time_offset == daylight_time_offset) {
-			dst = "0"; // daylight savings time is NOT observed
+		dst = "0"; // daylight savings time is NOT observed
 	} else {
-			// positive is southern, negative is northern hemisphere
-			var hemisphere = std_time_offset - daylight_time_offset;
-			if (hemisphere >= 0)
-				std_time_offset = daylight_time_offset;
-			dst = "1"; // daylight savings time is observed
+		std_time_offset = daylight_time_offset;
+		dst = "1"; // daylight savings time is observed
 	}
 
 	return parseInt(std_time_offset*3600,10);
@@ -2440,7 +2431,7 @@ function getMeters(x, y){
 
 /* store data to cookie */
 function setCookie(name, val) {
-	document.cookie = name + "=" + escape(val) + ";expires=" + (new Date(2020, 1)).toGMTString();
+	document.cookie = name + "=" + escape(val) + ";expires=" + (new Date((new Date()).getFullYear() + 10, 1)).toGMTString();
 }
 
 /* ie */

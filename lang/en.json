@@ -1,4 +1,4 @@
-TRANSLATIONS = {
+{
     "Track player": "",
     "Monitoring info": "",
     "Interval": "",
@@ -121,7 +121,7 @@ TRANSLATIONS = {
     "Relative odometer": "",
     "On/Off": "",
     "Relative engine hours": "",
-    "rpm": "об/мин",
+    "rpm": "rpm",
     "Enter sensor name, type, description or parameter.": "",
     "Temperature coefficient": "",
     "Temperature sensor": "",
@@ -152,4 +152,4 @@ TRANSLATIONS = {
     "Filling": "",
     "Maintenance": "",
     "Violation": ""
-};
+}

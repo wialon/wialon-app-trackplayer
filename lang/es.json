@@ -1,4 +1,4 @@
-TRANSLATIONS = {
+{
     "Track player": "Reproductor de recorridos",
     "Monitoring info": "Información para el seguimiento",
     "Interval": "Intervalo",
@@ -152,4 +152,4 @@ TRANSLATIONS = {
     "Filling": "Llenado",
     "Maintenance": "Mantenimiento",
     "Violation": "Violación"
-};
+}

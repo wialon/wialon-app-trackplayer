@@ -1,4 +1,4 @@
-TRANSLATIONS = {
+{
     "Track player": "Rajaesitaja",
     "Monitoring info": "Jälgimise info",
     "Interval": "Intervall",
@@ -152,4 +152,4 @@ TRANSLATIONS = {
     "Filling": "Täitmine",
     "Maintenance": "Hooldus",
     "Violation": "Rikkumine"
-};
+}

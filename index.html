@@ -35,13 +35,33 @@
 		var documentationLink=null;
 		var is_white=null;
 		var APP_CONFIG = {};
-		function appPredefineVariables(app_langs,doc_link,is_whitelabeled,config){
-			availableLanguages=app_langs;
-			documentationLink=is_whitelabeled?(config.help_url_link ? decodeURIComponent(config.help_url_link) : null):doc_link;
-			is_white=is_whitelabeled;
-			APP_CONFIG=config;
-		}
+
+		fetch("/trackplayer/app/app.json")
+			.then((response) => response.ok && response.json())
+			.then((data) => {
+				is_white = false;
+				document.title = decodeURIComponent(data.title || "Track Player");
+				availableLanguages = data.language || null;
+			})
+		.then(() => {
+			fetch("/trackplayer/whitelabel.json")
+				.then((response) => response.ok && response.json())
+				.then((data) => {
+					if (data.hasOwnProperty('IS_WHITELABEL')) {
+						is_white = data.IS_WHITELABEL === false ? false : true;
+					}
+					document.title = decodeURIComponent(data.alias) || "Track Player";
+					if (data.hasOwnProperty('help_url_link')) {
+						documentationLink=data.help_url_link;
+					}
+					APP_CONFIG = data;
+				})
+				.catch(() => {
+					console.log('Error loading whitelabel.json');
+				});
+		});
 	</script>
+
 </head>
 <body>
 	<div id="header">
